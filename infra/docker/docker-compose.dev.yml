@@ -11,8 +11,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
       POSTGRES_DB: ${POSTGRES_DB:-app}
       POSTGRES_HOST_AUTH_METHOD: trust
+    # postgres:18+ stores data in a version-specific subdir and expects the
+    # volume at /var/lib/postgresql (not .../data). See docker-library/postgres#37.
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-app}"]
       interval: 5s
