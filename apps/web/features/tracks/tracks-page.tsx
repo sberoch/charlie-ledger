@@ -10,6 +10,7 @@ import { FilterChips } from "@/components/filter-chips"
 import { PageHeader } from "@/components/shell/page-header"
 import { formatDate } from "@/lib/format"
 import { useTracks, useTrackTags } from "./hooks"
+import { TrackExportDialog } from "./track-export-dialog"
 
 export function TracksPage() {
   const router = useRouter()
@@ -26,7 +27,9 @@ export function TracksPage() {
       <PageHeader
         title="Tracks"
         subtitle={tracks ? `${tracks.length} tracks in library` : "Loading…"}
-      />
+      >
+        <TrackExportDialog tags={tags} currentTag={tag} search={search} />
+      </PageHeader>
 
       <div className="mb-5 flex flex-col gap-3 border bg-card p-3.5 md:flex-row md:items-center md:gap-4">
         <FilterChips

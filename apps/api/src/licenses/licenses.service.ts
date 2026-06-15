@@ -4,12 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, arrayOverlaps, desc, eq } from 'drizzle-orm';
 import {
   EXCLUSIVITY_TIER_LABELS,
   EXCLUSIVITY_TIER_SHORT,
   TERM_LENGTH_SHORT,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
+  normalizeUsageTypes,
   defaultEndDate,
   deriveInvoiceStatus,
   expirationState,
@@ -49,11 +50,11 @@ function licenseTitle(row: {
 }
 
 function licenseMeta(row: {
-  usageType: keyof typeof USAGE_TYPE_LABELS;
+  usageTypes: Parameters<typeof formatUsageTypes>[0];
   termLength: keyof typeof TERM_LENGTH_SHORT;
   exclusivityTier: keyof typeof EXCLUSIVITY_TIER_SHORT;
 }) {
-  return `${USAGE_TYPE_LABELS[row.usageType]} · ${TERM_LENGTH_SHORT[row.termLength]} · ${EXCLUSIVITY_TIER_SHORT[row.exclusivityTier]}`;
+  return `${formatUsageTypes(row.usageTypes)} · ${TERM_LENGTH_SHORT[row.termLength]} · ${EXCLUSIVITY_TIER_SHORT[row.exclusivityTier]}`;
 }
 
 @Injectable()
@@ -81,7 +82,10 @@ export class LicensesService {
     return rows
       .filter((row) => {
         if (query.trackId && row.trackId !== query.trackId) return false;
-        if (query.usageType && row.usageType !== query.usageType) return false;
+        // Single-value filter, contains-match: surface every license whose set
+        // includes the chosen medium (ADR-0004).
+        if (query.usageType && !row.usageTypes.includes(query.usageType))
+          return false;
         if (query.termLength && row.termLength !== query.termLength)
           return false;
         if (
@@ -159,7 +163,7 @@ export class LicensesService {
           trackId: input.trackId,
           brandId: input.brandId,
           payerId: input.payerId,
-          usageType: input.usageType,
+          usageTypes: normalizeUsageTypes(input.usageTypes),
           exclusivityTier: input.exclusivityTier,
           termLength: input.termLength,
           fee: input.fee,
@@ -181,7 +185,7 @@ export class LicensesService {
         description: licenseInvoiceDescription({
           trackName: trackRow.name,
           brandName: brandRow.name,
-          usageType: input.usageType,
+          usageTypes: normalizeUsageTypes(input.usageTypes),
           exclusivityTier: input.exclusivityTier,
           terms: input.terms,
         }),
@@ -225,7 +229,7 @@ export class LicensesService {
         trackId: merged.trackId,
         brandId: merged.brandId,
         payerId: merged.payerId,
-        usageType: merged.usageType,
+        usageTypes: normalizeUsageTypes(merged.usageTypes),
         exclusivityTier: merged.exclusivityTier,
         termLength: merged.termLength,
         fee: merged.fee,
@@ -333,10 +337,16 @@ export class LicensesService {
     return { collisions };
   }
 
-  /** "Similar Past Licenses" — same usage + exclusivity + term, newest first. */
+  /** "Similar Past Licenses" — overlapping usage (shares ≥1 medium) + same
+   *  exclusivity + term, newest first. Overlap, not exact-set equality, keeps
+   *  the pricing band populated on a small catalog (ADR-0004). */
   async similar(query: SimilarLicensesQuery): Promise<SimilarLicensesResult> {
     const rows = await this.db.query.license.findMany({
-      where: sql`${license.usageType} = ${query.usageType} AND ${license.exclusivityTier} = ${query.exclusivityTier} AND ${license.termLength} = ${query.termLength}`,
+      where: and(
+        arrayOverlaps(license.usageTypes, query.usageTypes),
+        eq(license.exclusivityTier, query.exclusivityTier),
+        eq(license.termLength, query.termLength),
+      ),
       with: { brand: true, track: true },
       orderBy: [desc(license.startDate)],
       limit: 25,
@@ -424,7 +434,7 @@ export class LicensesService {
       categoryName: row.brand.category.name,
       payerId: row.payerId,
       payerName: row.payer.name,
-      usageType: row.usageType,
+      usageTypes: row.usageTypes,
       exclusivityTier: row.exclusivityTier,
       termLength: row.termLength,
       fee: row.fee,

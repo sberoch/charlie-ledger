@@ -48,6 +48,63 @@ export class TracksService {
     return rows;
   }
 
+  /**
+   * Track export → CSV. Mirrors the list (one row per Track); `financials`
+   * adds the license-derived columns + a footer total (CONTEXT.md). Tags carry
+   * the FULL list joined with ';' so they never collide with the comma delimiter.
+   */
+  toCsv(rows: TrackListItemDto[], financials: boolean): string {
+    const esc = (v: string) => `"${v.replaceAll('"', '""')}"`;
+    const status = (s: TrackListItemDto['status']) =>
+      s === 'archived' ? 'Archived' : 'Active';
+    const base = (r: TrackListItemDto) => [
+      esc(r.name),
+      esc(r.tags.join('; ')),
+      status(r.status),
+    ];
+
+    if (!financials) {
+      const lines = [
+        ['Track', 'Tags', 'Status'].join(','),
+        ...rows.map((r) => base(r).join(',')),
+        [esc(`TOTAL (${rows.length} tracks)`), '', ''].join(','),
+      ];
+      return lines.join('\n') + '\n';
+    }
+
+    const totalLicenses = rows.reduce((acc, r) => acc + r.licenseCount, 0);
+    const totalSales = rows
+      .reduce((acc, r) => acc + Number(r.lifetimeSales), 0)
+      .toFixed(2);
+    const lines = [
+      [
+        'Track',
+        'Tags',
+        'Status',
+        'Licenses',
+        'Lifetime Sales (USD)',
+        'Last Licensed',
+      ].join(','),
+      ...rows.map((r) =>
+        [
+          ...base(r),
+          String(r.licenseCount),
+          r.lifetimeSales,
+          r.lastLicensedAt ?? '',
+        ].join(','),
+      ),
+      [
+        esc(`TOTAL (${rows.length} tracks)`),
+        '',
+        '',
+        String(totalLicenses),
+        totalSales,
+        '',
+      ].join(','),
+    ];
+    return lines.join('\n') + '\n';
+  }
+
   /** Distinct tags across the catalog, for the filter chips. */
   async tags(): Promise<string[]> {
     const rows = await this.db.execute<{ tag: string }>(

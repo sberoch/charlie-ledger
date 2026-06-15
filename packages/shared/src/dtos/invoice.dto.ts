@@ -1,7 +1,7 @@
 import { z } from "zod"
 import {
   EXCLUSIVITY_TIER_LABELS,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
   type ExclusivityTier,
   type UsageType,
 } from "../domain/enums"
@@ -69,13 +69,13 @@ export type VoidAndReissueInput = z.infer<typeof VoidAndReissueSchema>
 export function licenseInvoiceDescription(input: {
   trackName: string
   brandName: string
-  usageType: UsageType
+  usageTypes: UsageType[]
   exclusivityTier: ExclusivityTier
   terms?: string | null
 }): string {
   const terms = input.terms?.trim()
   if (terms) return terms
-  return `Music license — "${input.trackName}" × ${input.brandName} · ${USAGE_TYPE_LABELS[input.usageType]} · ${EXCLUSIVITY_TIER_LABELS[input.exclusivityTier]}`
+  return `Music license — "${input.trackName}" × ${input.brandName} · ${formatUsageTypes(input.usageTypes)} · ${EXCLUSIVITY_TIER_LABELS[input.exclusivityTier]}`
 }
 
 export function demoInvoiceDescription(input: {

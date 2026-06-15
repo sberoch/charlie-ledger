@@ -31,7 +31,11 @@ export const license = pgTable(
     payerId: uuid('payer_id')
       .notNull()
       .references(() => payer.id, { onDelete: 'restrict' }),
-    usageType: usageType('usage_type').notNull(),
+    // One or more media this License grants — see ADR-0004. Stored as an enum
+    // array; non-empty enforced in the DTO layer, not the DB. The physical
+    // column stays `usage_type` (a no-op rename buys nothing the app can see and
+    // would force a destructive drop+add migration); the field is plural.
+    usageTypes: usageType('usage_type').array().notNull(),
     exclusivityTier: exclusivityTier('exclusivity_tier').notNull(),
     termLength: termLength('term_length').notNull(),
     fee: numeric('fee', { precision: 12, scale: 2 }).notNull(),

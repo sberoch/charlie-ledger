@@ -119,7 +119,10 @@ export class InvoicePdfService {
     doc.text(inv.description, descX, rowTop, { width: width * 0.52 });
     const descBottom = doc.y;
     doc.font('Courier-Bold').fontSize(10);
-    doc.text(formatMoney(inv.amount), MARGIN, rowTop, { width, align: 'right' });
+    doc.text(formatMoney(inv.amount), MARGIN, rowTop, {
+      width,
+      align: 'right',
+    });
     const rowBottom = Math.max(descBottom + 14, tableTop + 56);
     doc
       .moveTo(MARGIN, rowBottom)

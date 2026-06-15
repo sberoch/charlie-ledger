@@ -187,6 +187,10 @@ export function DashboardPage() {
 
         <div className="flex flex-col gap-5">
           <Panel title="License Mix · By Usage">
+            {/* A license can grant several media, so its fee counts toward each.
+                `share` is normalised against the usage-weighted total (not
+                revenue), so the slices partition to 100% and read as a true
+                usage mix — see ADR-0004. */}
             <div className="flex items-center gap-5">
               <svg viewBox="0 0 42 42" className="size-24 shrink-0 md:size-28">
                 <circle

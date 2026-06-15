@@ -20,6 +20,21 @@ export const USAGE_TYPE_LABELS: Record<UsageType, string> = {
   internal: "Internal",
 }
 
+// A License grants one or more Usage Types (see CONTEXT.md / ADR-0004). The set
+// is normalised on write to a deduped, canonically-ordered (enum declaration
+// order), non-empty array — the non-empty guard lives in the License DTO.
+export function normalizeUsageTypes(values: UsageType[]): UsageType[] {
+  const set = new Set(values)
+  return UsageTypeSchema.options.filter((u) => set.has(u))
+}
+
+/** Human label for a usage set: comma-joined in canonical order. */
+export function formatUsageTypes(values: UsageType[]): string {
+  return normalizeUsageTypes(values)
+    .map((u) => USAGE_TYPE_LABELS[u])
+    .join(", ")
+}
+
 export const ExclusivityTierSchema = z.enum([
   "non_exclusive",
   "category_exclusive",

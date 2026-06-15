@@ -43,17 +43,18 @@ or deletes a Track. Identified by its Disco id.
 _Avoid_: Song, asset.
 
 **License**:
-A grant of a Track's use to a Brand under specific terms (usage, term length, exclusivity,
-fee, dates) plus optional freeform **Grant terms**. References exactly **one Track**
-(required), one **Brand**, and one **Payer**.
+A grant of a Track's use to a Brand under specific terms (one or more **Usage Types**, term
+length, exclusivity, fee, dates) plus optional freeform **Grant terms**. References exactly
+**one Track** (required), one **Brand**, and one **Payer**.
 A Track has many Licenses — its history. Lifetime sales roll up a Track's License fees.
 Its **end date** is the source of truth for expiration (seeded from start + term length,
 but editable); a `perpetual` term has no end date and never expires.
 _Avoid_: Deal, contract, sale.
 
 **Usage Type**:
-The medium a License grants the Track for. Closed set: `broadcast`, `digital_media`,
-`social_media`, `internet`, `internal`.
+A medium a License grants the Track for. Closed set: `broadcast`, `digital_media`,
+`social_media`, `internet`, `internal`. A License carries **one or more** — the atomic unit
+stays a single medium; it is the License's relationship to it that is many.
 
 **Exclusivity Tier**:
 How exclusive a License's grant is. Closed set: `non_exclusive`, `category_exclusive`,
@@ -149,6 +150,20 @@ syncing them.
 A date-range sales pull grouped by Brand / Payer / Track / Usage Type, on a **cash basis**
 — a sale only appears once its Invoice is Paid, anchored on the invoice's **paid date**.
 Deliberately diverges from Lifetime sales (commitment basis); the two totals will differ.
+The Brand / Payer / Track groupings are clean partitions (Σ rows = grand total). The
+**Usage Type** grouping is the exception: a License carries one or more Usage Types, so its
+full fee counts toward **each** of them — the usage rows **overlap and over-sum the grand
+total by design**. The grand total stays the true Σ of paid invoices; only the usage rows
+double-count. See ADR-0004.
+
+**Track export**:
+The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag and search
+filter** so the export always equals the on-screen view — one row per Track, never a
+per-License breakdown. Carries a **with / without financials** choice (default *without*):
+*without* is a share-safe catalog (`Track · Tags · Status`); *with* adds the
+license-derived columns (`Licenses · Lifetime sales · Last licensed`) and a footer total of
+Σ Lifetime sales. Follows the same ledger voice as the Invoice and Report PDFs.
+_Avoid_: Download, dump, backup.
 
 ## Flagged ambiguities
 

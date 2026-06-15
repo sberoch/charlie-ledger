@@ -7,7 +7,7 @@ import {
   EXCLUSIVITY_TIER_SHORT,
   TERM_LENGTH_LABELS,
   TERM_LENGTH_SHORT,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
   expirationState,
   formatMoney,
   todayIso,
@@ -15,6 +15,7 @@ import {
   type TermLength,
   type UsageType,
 } from "@workspace/shared"
+import { X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -57,6 +58,13 @@ export function LicensesPage() {
   const [usage, setUsage] = useState<UsageType | null>(null)
   const [term, setTerm] = useState<TermLength | null>(null)
   const [search, setSearch] = useState("")
+  const hasFilters = urgency !== null || usage !== null || term !== null || search !== ""
+  const clearFilters = () => {
+    setUrgency(null)
+    setUsage(null)
+    setTerm(null)
+    setSearch("")
+  }
   const { data: licenses, isPending } = useLicenses({
     urgency: urgency ?? undefined,
     usageType: usage ?? undefined,
@@ -108,6 +116,17 @@ export function LicensesPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="lg:ml-auto lg:max-w-52"
         />
+        {hasFilters ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={clearFilters}
+            aria-label="Clear filters"
+            title="Clear filters"
+          >
+            <X className="size-4" />
+          </Button>
+        ) : null}
       </div>
 
       {isPending ? (
@@ -141,7 +160,7 @@ export function LicensesPage() {
                         {license.brandName}
                       </span>
                       <span className="mt-1 block text-[11px] tracking-[0.05em] text-muted-foreground uppercase">
-                        {USAGE_TYPE_LABELS[license.usageType]} ·{" "}
+                        {formatUsageTypes(license.usageTypes)} ·{" "}
                         {TERM_LENGTH_SHORT[license.termLength]} ·{" "}
                         {EXCLUSIVITY_TIER_SHORT[license.exclusivityTier]}
                       </span>
@@ -193,7 +212,7 @@ export function LicensesPage() {
                     </td>
                     <td className="px-3.5 py-4">{license.brandName}</td>
                     <td className="px-3.5 py-4">
-                      {USAGE_TYPE_LABELS[license.usageType]}
+                      {formatUsageTypes(license.usageTypes)}
                     </td>
                     <td className="px-3.5 py-4">
                       {TERM_LENGTH_SHORT[license.termLength]} ·{" "}

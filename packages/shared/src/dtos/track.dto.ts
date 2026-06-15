@@ -25,6 +25,17 @@ export const TrackListQuerySchema = z.object({
 })
 export type TrackListQuery = z.infer<typeof TrackListQuerySchema>
 
+// Track export — the Tracks list rendered to CSV/PDF, scoped to the active
+// tag/search filter (CONTEXT.md: "Track export"). `financials` opts into the
+// license-derived columns; default off keeps the export a share-safe catalog.
+export const TrackExportQuerySchema = TrackListQuerySchema.extend({
+  financials: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+})
+export type TrackExportQuery = z.infer<typeof TrackExportQuerySchema>
+
 export const TrackCategoryPerformanceSchema = z.object({
   categoryId: UuidSchema,
   categoryName: z.string(),

@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import {
   EXCLUSIVITY_TIER_LABELS,
   TERM_LENGTH_LABELS,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
   formatInvoiceNumber,
   formatMoney,
 } from "@workspace/shared"
@@ -95,7 +95,7 @@ export function LicenseDetailPage({ id }: { id: string }) {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4">
-        <Fact label="Usage">{USAGE_TYPE_LABELS[license.usageType]}</Fact>
+        <Fact label="Usage">{formatUsageTypes(license.usageTypes)}</Fact>
         <Fact label="Term">{TERM_LENGTH_LABELS[license.termLength]}</Fact>
         <Fact label="Exclusivity">
           {EXCLUSIVITY_TIER_LABELS[license.exclusivityTier]}

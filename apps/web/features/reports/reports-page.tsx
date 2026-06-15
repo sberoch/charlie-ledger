@@ -137,6 +137,14 @@ export function ReportsPage() {
             </table>
           </div>
 
+          {report.groupBy === "usage_type" && report.rows.length > 0 ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              A license can grant several media, so each fee counts toward every
+              usage row — the rows overlap and sum to more than the grand total
+              by design.
+            </p>
+          ) : null}
+
           <div className="mt-4 flex justify-end gap-2">
             <Button
               type="button"

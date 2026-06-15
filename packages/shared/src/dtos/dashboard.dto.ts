@@ -60,8 +60,9 @@ export const TopTrackSchema = z.object({
 
 export const MixSliceSchema = z.object({
   usageType: UsageTypeSchema,
+  /** Absolute fee weight touching this medium (overlapping; see ADR-0004). */
   amount: MoneySchema,
-  /** Share of total, 0–1. */
+  /** Share of the usage-weighted total, 0–1 — slices partition to 100%. */
   share: z.number(),
 })
 

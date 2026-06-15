@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 import {
   EXCLUSIVITY_TIER_SHORT,
   TERM_LENGTH_SHORT,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
   addDays,
   daysBetween,
   deriveInvoiceStatus,
@@ -92,7 +92,7 @@ export class DigestService {
         .sort((a, b) => (a.endDate! < b.endDate! ? -1 : 1))
         .map((l) => ({
           title: `${l.track.name} × ${l.brand.name}`,
-          meta: `${USAGE_TYPE_LABELS[l.usageType]} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
+          meta: `${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
           fee: l.fee,
           inDays: daysBetween(today, l.endDate!),
         })),

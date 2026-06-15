@@ -109,7 +109,7 @@ export class InvoicesService {
           description: licenseInvoiceDescription({
             trackName: row.license.track.name,
             brandName: row.license.brand.name,
-            usageType: row.license.usageType,
+            usageTypes: row.license.usageTypes,
             exclusivityTier: row.license.exclusivityTier,
             terms: row.license.terms,
           }),

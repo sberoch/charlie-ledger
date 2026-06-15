@@ -25,6 +25,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { SegControl } from "@/components/seg-control"
+import { MultiSegControl } from "@/components/multi-seg-control"
 import { EntityCombobox } from "@/features/parties/entity-combobox"
 import { BrandPicker, PayerPicker } from "@/features/parties/pickers"
 import { useTracks } from "@/features/tracks/hooks"
@@ -97,7 +98,7 @@ export function LicenseForm({
           trackId: existing.trackId,
           brandId: existing.brandId,
           payerId: existing.payerId,
-          usageType: existing.usageType,
+          usageTypes: existing.usageTypes,
           exclusivityTier: existing.exclusivityTier,
           termLength: existing.termLength,
           fee: existing.fee,
@@ -108,6 +109,7 @@ export function LicenseForm({
         }
       : {
           trackId: initialTrackId ?? "",
+          usageTypes: [],
           startDate: todayIso(),
           fee: "",
         },
@@ -129,7 +131,7 @@ export function LicenseForm({
     excludeLicenseId: existing?.id,
   })
   const { data: similar } = useSimilarLicenses({
-    usageType: values.usageType,
+    usageTypes: values.usageTypes,
     exclusivityTier: values.exclusivityTier,
     termLength: values.termLength,
     trackId: values.trackId || undefined,
@@ -213,14 +215,14 @@ export function LicenseForm({
           />
         </Field>
 
-        <Field label="Usage Type">
-          <SegControl
+        <Field label="Usage Type" hint="One or more — pick every medium this grant covers.">
+          <MultiSegControl
             options={enumOptions(USAGE_TYPE_LABELS).filter((o) =>
               UsageTypeSchema.options.includes(o.value)
             )}
-            value={values.usageType}
+            value={values.usageTypes ?? []}
             onChange={(v) =>
-              form.setValue("usageType", v, { shouldValidate: true })
+              form.setValue("usageTypes", v, { shouldValidate: true })
             }
           />
         </Field>

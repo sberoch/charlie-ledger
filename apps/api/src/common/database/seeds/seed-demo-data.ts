@@ -446,7 +446,10 @@ async function seedDemoData() {
         trackId: await trackIdByName(fx.track),
         brandId: await findOrCreateBrand(fx.brand, fx.category),
         payerId: await findOrCreatePayer(fx.brand), // direct pays dominate
-        usageType: fx.usage,
+        // Most grant a single medium; broadcast deals also carry social so the
+        // demo exercises multi-usage rollups (ADR-0004).
+        usageTypes:
+          fx.usage === 'broadcast' ? ['broadcast', 'social_media'] : [fx.usage],
         exclusivityTier: fx.excl,
         termLength: fx.term,
         fee: fx.fee.toFixed(2),

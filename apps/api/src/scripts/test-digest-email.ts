@@ -67,7 +67,9 @@ async function main() {
       content.liftingHolds.length === 0 &&
       content.overdueInvoices.length === 0;
     if (empty) {
-      console.log('DB digest window is empty — falling back to sample fixture.');
+      console.log(
+        'DB digest window is empty — falling back to sample fixture.',
+      );
       console.log('(Run `pnpm db:seed:demo` from apps/api for real data.)');
       content = SAMPLE;
     }
@@ -102,7 +104,8 @@ async function main() {
     return;
   }
 
-  const from = process.env.DIGEST_FROM ?? 'Foltz Ledger <ledger@charliefoltz.com>';
+  const from =
+    process.env.DIGEST_FROM ?? 'Foltz Ledger <ledger@charliefoltz.com>';
   console.log(`\nSending one test email from "${from}" to ${recipient} ...`);
   const resend = new Resend(apiKey);
   const { data, error } = await resend.emails.send({

@@ -28,7 +28,8 @@ export const LicenseSchema = z.object({
   categoryName: z.string(),
   payerId: UuidSchema,
   payerName: z.string(),
-  usageType: UsageTypeSchema,
+  /** One or more media this License grants (ADR-0004). Canonically ordered. */
+  usageTypes: z.array(UsageTypeSchema).min(1),
   exclusivityTier: ExclusivityTierSchema,
   termLength: TermLengthSchema,
   fee: MoneySchema,
@@ -73,7 +74,8 @@ export const CreateLicenseSchema = z.object({
   trackId: UuidSchema,
   brandId: UuidSchema,
   payerId: UuidSchema,
-  usageType: UsageTypeSchema,
+  /** At least one medium required; normalised (deduped/sorted) server-side. */
+  usageTypes: z.array(UsageTypeSchema).min(1, "Pick at least one usage type"),
   exclusivityTier: ExclusivityTierSchema,
   termLength: TermLengthSchema,
   fee: MoneySchema,
@@ -134,7 +136,12 @@ export type CollisionCheckResult = z.infer<typeof CollisionCheckResultSchema>
 // ── "Similar Past Licenses" pricing reference ───────────────────────────────
 
 export const SimilarLicensesQuerySchema = z.object({
-  usageType: UsageTypeSchema,
+  // Arrives as a CSV query param (e.g. "broadcast,social_media"); matched by
+  // overlap against past licenses' usage sets (ADR-0004).
+  usageTypes: z
+    .string()
+    .transform((s) => s.split(",").filter(Boolean))
+    .pipe(z.array(UsageTypeSchema).min(1)),
   exclusivityTier: ExclusivityTierSchema,
   termLength: TermLengthSchema,
   trackId: UuidSchema.optional(),

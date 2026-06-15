@@ -34,11 +34,15 @@ export class ReportsService {
 
     const groups = new Map<string, { count: number; total: number }>();
     for (const inv of paid) {
-      const label = this.groupLabel(inv, query.groupBy);
-      const entry = groups.get(label) ?? { count: 0, total: 0 };
-      entry.count += 1;
-      entry.total += Number(inv.amount);
-      groups.set(label, entry);
+      // Usually one label per invoice. The exception is a multi-usage license
+      // under the `usage_type` grouping: its full fee fans out to EACH medium,
+      // so the usage rows overlap and over-sum the grand total (ADR-0004).
+      for (const label of this.groupLabels(inv, query.groupBy)) {
+        const entry = groups.get(label) ?? { count: 0, total: 0 };
+        entry.count += 1;
+        entry.total += Number(inv.amount);
+        groups.set(label, entry);
+      }
     }
 
     const rows = [...groups.entries()]
@@ -61,38 +65,39 @@ export class ReportsService {
     };
   }
 
-  private groupLabel(
+  private groupLabels(
     inv: {
       license: {
         brand: { name: string };
         payer: { name: string };
         track: { name: string };
-        usageType: keyof typeof USAGE_TYPE_LABELS;
+        usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
       demo: { brand: { name: string }; payer: { name: string } } | null;
     },
     groupBy: ReportQuery['groupBy'],
-  ): string {
+  ): string[] {
     if (inv.license) {
       switch (groupBy) {
         case 'brand':
-          return inv.license.brand.name;
+          return [inv.license.brand.name];
         case 'payer':
-          return inv.license.payer.name;
+          return [inv.license.payer.name];
         case 'track':
-          return inv.license.track.name;
+          return [inv.license.track.name];
         case 'usage_type':
-          return USAGE_TYPE_LABELS[inv.license.usageType];
+          // Fan-out: one label per medium the license grants.
+          return inv.license.usageTypes.map((u) => USAGE_TYPE_LABELS[u]);
       }
     }
     // Demo invoices: brand/payer group naturally; track/usage get one bucket.
     switch (groupBy) {
       case 'brand':
-        return inv.demo!.brand.name;
+        return [inv.demo!.brand.name];
       case 'payer':
-        return inv.demo!.payer.name;
+        return [inv.demo!.payer.name];
       default:
-        return '— Demos';
+        return ['— Demos'];
     }
   }
 
@@ -105,6 +110,15 @@ export class ReportsService {
       ),
       ['TOTAL', String(result.paidInvoiceCount), result.grandTotal].join(','),
     ];
+    // A license can grant several media, so each fee counts toward every usage
+    // row — they overlap and over-sum the grand total by design (ADR-0004).
+    if (result.groupBy === 'usage_type')
+      lines.push(
+        '',
+        esc(
+          'Note: licenses can grant multiple usage types, so usage rows overlap and sum to more than the grand total.',
+        ),
+      );
     return lines.join('\n') + '\n';
   }
 }

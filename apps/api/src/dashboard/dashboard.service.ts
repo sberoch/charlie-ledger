@@ -3,7 +3,7 @@ import { desc, isNotNull } from 'drizzle-orm';
 import {
   EXCLUSIVITY_TIER_SHORT,
   TERM_LENGTH_SHORT,
-  USAGE_TYPE_LABELS,
+  formatUsageTypes,
   daysBetween,
   expirationState,
   todayIso,
@@ -50,7 +50,7 @@ export class DashboardService {
           date: l.endDate!,
           daysOut: daysBetween(today, l.endDate!),
           title: `${l.track.name} × ${l.brand.name}`,
-          meta: `${USAGE_TYPE_LABELS[l.usageType]} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
+          meta: `${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
           fee: l.fee,
           urgency: expirationState(l.endDate, today).urgency,
         })),
@@ -123,15 +123,25 @@ export class DashboardService {
       .slice(0, 5);
 
     // ── License mix by usage (fee-weighted) ──
-    const total = Number(sum(licenses.map((l) => l.fee)));
-    const byUsage = new Map<(typeof licenses)[number]['usageType'], number>();
+    // A license can grant several media; its full fee counts toward EACH (so the
+    // amounts overlap and can't be summed against revenue — ADR-0004). For the
+    // donut we want a true partition, so `share` is normalised against the
+    // usage-weighted total (Σ of all media weights), NOT total revenue — the
+    // slices sum to exactly 100% and read as "share of the usage mix". `amount`
+    // stays the absolute fee weight touching that medium.
+    const byUsage = new Map<
+      (typeof licenses)[number]['usageTypes'][number],
+      number
+    >();
     for (const l of licenses)
-      byUsage.set(l.usageType, (byUsage.get(l.usageType) ?? 0) + Number(l.fee));
+      for (const u of l.usageTypes)
+        byUsage.set(u, (byUsage.get(u) ?? 0) + Number(l.fee));
+    const usageWeightTotal = [...byUsage.values()].reduce((a, b) => a + b, 0);
     const licenseMix: DashboardDto['licenseMix'] = [...byUsage.entries()]
       .map(([usageType, amount]) => ({
         usageType,
         amount: amount.toFixed(2),
-        share: total > 0 ? amount / total : 0,
+        share: usageWeightTotal > 0 ? amount / usageWeightTotal : 0,
       }))
       .sort((a, b) => b.share - a.share);
 
@@ -224,7 +234,7 @@ export class DashboardService {
         at: l.createdAt.toISOString(),
         sourceId: l.id,
         title: `${l.track.name} × ${l.brand.name}`,
-        meta: `Licensed · ${USAGE_TYPE_LABELS[l.usageType]} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
+        meta: `Licensed · ${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
         amount: l.fee,
       })),
       ...demos.map((d) => ({

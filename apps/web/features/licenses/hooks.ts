@@ -13,6 +13,7 @@ import {
   type LicenseListQuery,
   type SimilarLicensesQuery,
   type UpdateLicenseInput,
+  type UsageType,
 } from "@workspace/shared"
 import { api } from "@/lib/api"
 
@@ -98,16 +99,27 @@ export function useCollisions(query: Partial<CollisionCheckQuery>) {
   })
 }
 
-/** "Similar Past Licenses" pricing reference for the form side panel. */
-export function useSimilarLicenses(query: Partial<SimilarLicensesQuery>) {
+/** "Similar Past Licenses" pricing reference for the form side panel. The usage
+ *  set is sent as a CSV param ("broadcast,social_media") and matched by overlap
+ *  server-side (ADR-0004). */
+export function useSimilarLicenses(
+  query: Partial<Omit<SimilarLicensesQuery, "usageTypes">> & {
+    usageTypes?: UsageType[]
+  }
+) {
   const complete = Boolean(
-    query.usageType && query.exclusivityTier && query.termLength
+    query.usageTypes?.length && query.exclusivityTier && query.termLength
   )
   return useQuery({
     queryKey: ["similar-licenses", query],
     queryFn: () =>
       api("/licenses/similar", {
-        query: query as Record<string, string>,
+        query: {
+          usageTypes: query.usageTypes?.join(","),
+          exclusivityTier: query.exclusivityTier,
+          termLength: query.termLength,
+          trackId: query.trackId,
+        },
         schema: SimilarLicensesResultSchema,
       }),
     enabled: complete,
