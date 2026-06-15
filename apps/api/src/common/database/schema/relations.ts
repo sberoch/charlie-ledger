@@ -1,12 +1,21 @@
-import { relations } from "drizzle-orm";
-import { brand } from "./brand";
-import { demo } from "./demo";
-import { invoice } from "./invoice";
-import { license } from "./license";
-import { payer } from "./payer";
-import { track } from "./track";
+import { relations } from 'drizzle-orm';
+import { brand } from './brand';
+import { brandCategory } from './brand-category';
+import { demo } from './demo';
+import { invoice } from './invoice';
+import { license } from './license';
+import { payer } from './payer';
+import { track } from './track';
 
-export const brandRelations = relations(brand, ({ many }) => ({
+export const brandCategoryRelations = relations(brandCategory, ({ many }) => ({
+  brands: many(brand),
+}));
+
+export const brandRelations = relations(brand, ({ one, many }) => ({
+  category: one(brandCategory, {
+    fields: [brand.categoryId],
+    references: [brandCategory.id],
+  }),
   licenses: many(license),
   demos: many(demo),
 }));
@@ -39,14 +48,15 @@ export const licenseRelations = relations(license, ({ one, many }) => ({
   renewedTo: one(license, {
     fields: [license.renewedToId],
     references: [license.id],
-    relationName: "renewal",
+    relationName: 'renewal',
   }),
   // The license(s) this one replaced (reverse of renewedTo).
-  renewedFrom: many(license, { relationName: "renewal" }),
-  invoice: one(invoice),
+  renewedFrom: many(license, { relationName: 'renewal' }),
+  // One LIVE invoice plus voided history (ADR-0002).
+  invoices: many(invoice),
 }));
 
-export const demoRelations = relations(demo, ({ one }) => ({
+export const demoRelations = relations(demo, ({ one, many }) => ({
   brand: one(brand, {
     fields: [demo.brandId],
     references: [brand.id],
@@ -59,7 +69,8 @@ export const demoRelations = relations(demo, ({ one }) => ({
     fields: [demo.convertedTrackId],
     references: [track.id],
   }),
-  invoice: one(invoice),
+  // One LIVE invoice plus voided history (ADR-0002).
+  invoices: many(invoice),
 }));
 
 export const invoiceRelations = relations(invoice, ({ one }) => ({

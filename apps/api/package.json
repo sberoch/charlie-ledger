@@ -19,22 +19,29 @@
     "dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/common/database/migrate.ts"
+    "db:migrate": "tsx src/common/database/migrate.ts",
+    "db:seed": "tsx src/common/database/seeds/seed-tracks.ts",
+    "db:seed:demo": "tsx src/common/database/seeds/seed-demo-data.ts",
+    "email:test": "tsx src/scripts/test-digest-email.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.1.3",
     "@thallesp/nestjs-better-auth": "^2.6.1",
     "@workspace/shared": "workspace:*",
     "better-auth": "^1.6.15",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "nestjs-pino": "^4.6.1",
+    "pdfkit": "^0.19.1",
     "pg": "^8.21.0",
     "pino": "^10.3.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "resend": "^6.12.4",
+    "rxjs": "^7.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -45,6 +52,7 @@
     "@swc/core": "^1.15.40",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.8",
     "drizzle-kit": "^0.31.10",

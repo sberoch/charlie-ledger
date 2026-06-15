@@ -1,0 +1,91 @@
+"use client"
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { z } from "zod"
+import {
+  BrandCategorySchema,
+  BrandSchema,
+  PayerSchema,
+  type BrandDto,
+  type BrandCategoryDto,
+  type CreateBrandInput,
+  type CreatePayerInput,
+  type PayerDto,
+  type UpdatePayerInput,
+} from "@workspace/shared"
+import { api } from "@/lib/api"
+
+export function useBrands() {
+  return useQuery({
+    queryKey: ["brands"],
+    queryFn: () => api("/brands", { schema: z.array(BrandSchema) }),
+  })
+}
+
+export function useCategories() {
+  return useQuery({
+    queryKey: ["brand-categories"],
+    queryFn: () =>
+      api("/brand-categories", { schema: z.array(BrandCategorySchema) }),
+  })
+}
+
+export function usePayers() {
+  return useQuery({
+    queryKey: ["payers"],
+    queryFn: () => api("/payers", { schema: z.array(PayerSchema) }),
+  })
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) =>
+      api<BrandCategoryDto>("/brand-categories", {
+        method: "POST",
+        body: { name },
+        schema: BrandCategorySchema,
+      }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["brand-categories"] }),
+  })
+}
+
+export function useCreateBrand() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateBrandInput) =>
+      api<BrandDto>("/brands", {
+        method: "POST",
+        body: input,
+        schema: BrandSchema,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["brands"] }),
+  })
+}
+
+export function useCreatePayer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreatePayerInput) =>
+      api<PayerDto>("/payers", {
+        method: "POST",
+        body: input,
+        schema: PayerSchema,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["payers"] }),
+  })
+}
+
+export function useUpdatePayer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdatePayerInput & { id: string }) =>
+      api<PayerDto>(`/payers/${id}`, {
+        method: "PATCH",
+        body: input,
+        schema: PayerSchema,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["payers"] }),
+  })
+}
