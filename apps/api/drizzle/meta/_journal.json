@@ -43,6 +43,13 @@
       "when": 1781565515863,
       "tag": "0005_multi_usage_licenses",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781635539725,
+      "tag": "0006_eager_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

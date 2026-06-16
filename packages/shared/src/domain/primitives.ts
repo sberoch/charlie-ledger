@@ -17,6 +17,17 @@ export const MoneySchema = z
   )
 export type Money = z.infer<typeof MoneySchema>
 
+/** Like Money but signed — a leading "-" is allowed. Used by Leads, whose
+ *  amounts may be negative (refund / adjustment / downward split); fees never
+ *  are. See ADR-0005. */
+export const SignedMoneySchema = z
+  .string()
+  .regex(
+    /^-?\d+(\.\d{1,2})?$/,
+    "Expected a decimal amount like 24500, -1200, or 24500.50"
+  )
+export type SignedMoney = z.infer<typeof SignedMoneySchema>
+
 export const UuidSchema = z.string().uuid()
 
 /** "24500.00" → "$24,500" (whole dollars; cents only when present). */

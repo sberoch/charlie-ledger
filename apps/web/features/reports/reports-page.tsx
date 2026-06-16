@@ -140,8 +140,8 @@ export function ReportsPage() {
           {report.groupBy === "usage_type" && report.rows.length > 0 ? (
             <p className="mt-2 text-[11px] text-muted-foreground">
               A license can grant several media, so each fee counts toward every
-              usage row — the rows overlap and sum to more than the grand total
-              by design.
+              usage row. The rows will overlap and sum to more than the grand
+              total.
             </p>
           ) : null}
 

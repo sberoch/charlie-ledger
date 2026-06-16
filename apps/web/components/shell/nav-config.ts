@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   ReceiptText,
   Settings,
+  Wallet,
   type LucideIcon,
 } from "lucide-react"
 
@@ -29,6 +30,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const MORE_NAV: NavItem[] = [
   { href: "/invoices", label: "Invoices", glyph: "▭", icon: ReceiptText },
+  { href: "/leads", label: "Leads", glyph: "¤", icon: Wallet },
   { href: "/reports", label: "Reports", glyph: "▤", icon: BarChart3 },
   { href: "/settings", label: "Settings", glyph: "⚙", icon: Settings },
 ]

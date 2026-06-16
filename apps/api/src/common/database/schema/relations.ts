@@ -3,6 +3,7 @@ import { brand } from './brand';
 import { brandCategory } from './brand-category';
 import { demo } from './demo';
 import { invoice } from './invoice';
+import { lead } from './lead';
 import { license } from './license';
 import { payer } from './payer';
 import { track } from './track';
@@ -18,6 +19,8 @@ export const brandRelations = relations(brand, ({ one, many }) => ({
   }),
   licenses: many(license),
   demos: many(demo),
+  // Personal-ledger lines optionally attributed to this brand (ADR-0005).
+  leads: many(lead),
 }));
 
 export const payerRelations = relations(payer, ({ many }) => ({
@@ -54,6 +57,8 @@ export const licenseRelations = relations(license, ({ one, many }) => ({
   renewedFrom: many(license, { relationName: 'renewal' }),
   // One LIVE invoice plus voided history (ADR-0002).
   invoices: many(invoice),
+  // Personal-ledger lines optionally attributed to this license (ADR-0005).
+  leads: many(lead),
 }));
 
 export const demoRelations = relations(demo, ({ one, many }) => ({
@@ -71,6 +76,23 @@ export const demoRelations = relations(demo, ({ one, many }) => ({
   }),
   // One LIVE invoice plus voided history (ADR-0002).
   invoices: many(invoice),
+  // Personal-ledger lines optionally attributed to this demo (ADR-0005).
+  leads: many(lead),
+}));
+
+export const leadRelations = relations(lead, ({ one }) => ({
+  brand: one(brand, {
+    fields: [lead.brandId],
+    references: [brand.id],
+  }),
+  license: one(license, {
+    fields: [lead.licenseId],
+    references: [license.id],
+  }),
+  demo: one(demo, {
+    fields: [lead.demoId],
+    references: [demo.id],
+  }),
 }));
 
 export const invoiceRelations = relations(invoice, ({ one }) => ({

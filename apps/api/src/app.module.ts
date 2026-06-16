@@ -11,6 +11,7 @@ import { DigestModule } from './digest/digest.module';
 import { DrizzleModule } from './common/database/drizzle.module';
 import { HealthModule } from './health/health.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { LeadsModule } from './leads/leads.module';
 import { LicensesModule } from './licenses/licenses.module';
 import { loggerOptions } from './common/logger/logger.config';
 import { PartiesModule } from './parties/parties.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     InvoicesModule,
     LicensesModule,
     DemosModule,
+    LeadsModule,
     TracksModule,
     DashboardModule,
     ReportsModule,

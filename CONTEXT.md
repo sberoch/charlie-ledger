@@ -125,6 +125,18 @@ The agreed amount on a License or a Demo. Income rollups derive from fees, **not
 invoices: lifetime sales = Σ License fees; demo income = Σ Demo fees (tracked separately).
 _Avoid_: Price (UI label), amount, cost.
 
+### Personal ledger
+
+**Lead**:
+Charlie's house word for a freeform line in his personal ledger: a single
+(date, description, amount) row he adds by hand, with an optional link to a Brand,
+License, and/or Demo. **Not a sales prospect** — despite the universal meaning of the
+word, here a Lead records money, real or imagined. It may capture a **real milestone
+payment** he received, or a **fictional split** he invents to spread one fee across months
+for an even-looking view. Deliberately walled off from the rest of the ledger: a Lead never
+feeds lifetime sales, demo income, invoices, or the Report — it is his private record only.
+_Avoid_: Prospect, payment, receipt, installment.
+
 ### Sales & reporting
 
 **Lifetime sales**:
