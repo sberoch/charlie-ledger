@@ -21,6 +21,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/common/database/migrate.ts",
     "db:seed": "tsx src/common/database/seeds/seed-tracks.ts",
+    "db:seed:prod": "tsx src/common/database/seeds/seed-prod.ts",
     "db:seed:demo": "tsx src/common/database/seeds/seed-demo-data.ts",
     "email:test": "tsx src/scripts/test-digest-email.ts"
   },
