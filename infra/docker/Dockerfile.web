@@ -5,13 +5,15 @@ FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
 WORKDIR /app
 
+# Prune the monorepo down to `web` and its workspace dependencies so changes to
+# other apps don't invalidate the deps/builder cache layers below.
+FROM base AS pruner
+RUN npm install -g turbo@2.9.15
+COPY . .
+RUN turbo prune web --docker
+
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/eslint-config/package.json ./packages/eslint-config/
-COPY packages/typescript-config/package.json ./packages/typescript-config/
+COPY --from=pruner /app/out/json/ ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -21,7 +23,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/ ./
-COPY . .
+COPY --from=pruner /app/out/full/ ./
 RUN pnpm --filter=web... build
 
 FROM base AS runner
