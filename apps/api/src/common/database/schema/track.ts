@@ -1,31 +1,17 @@
-import { sql } from 'drizzle-orm';
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { trackStatus } from './enums';
 
-// A read-only mirror of a Disco track. Identity, name, and tags are owned by
-// Disco and propagate one-way on sync; never edited or deleted by the platform.
-// Absent from a sync => soft-archived (status flips), never removed. See CONTEXT.md.
-export const track = pgTable(
-  'track',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    // Mirror key — sync upserts match on this.
-    discoId: text('disco_id').notNull().unique(),
-    name: text('name').notNull(),
-    tags: text('tags')
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    status: trackStatus('status').notNull().default('active'),
-    lastSyncedAt: timestamp('last_synced_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
-  },
-  (table) => [
-    // Supports tag-chip filtering and the tag-combination trend analytics.
-    index('track_tags_gin_idx').using('gin', table.tags),
-  ],
-);
+// A piece of music in Charlie's catalog. Tags are platform-owned and assigned
+// via `track_tag` (see tag.ts) — no longer a Disco mirror. Names are unique
+// (the catalog's natural key); `status` archives a track via a manual catalog
+// action (the absent-from-sync rule retired with Disco). See CONTEXT.md.
+export const track = pgTable('track', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  status: trackStatus('status').notNull().default('active'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});

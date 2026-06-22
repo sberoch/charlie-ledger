@@ -67,26 +67,6 @@ export function AppSidebar() {
         </Link>
       </nav>
 
-      <nav className="px-3">
-        <div className="px-3 pb-2.5 text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Coming Soon
-        </div>
-        {["Import from QuickBooks", "Sync with Disco"].map((label) => (
-          <div
-            key={label}
-            className="flex cursor-not-allowed items-center gap-3 px-3 py-2.5 text-[13px] text-muted-foreground select-none"
-          >
-            <span className="inline-block w-3.5 text-center text-xs opacity-70">
-              {label.startsWith("Import") ? "↓" : "⟳"}
-            </span>
-            {label}
-            <span className="ml-auto border bg-background px-1.5 py-0.5 text-[10px] tracking-[0.1em]">
-              SOON
-            </span>
-          </div>
-        ))}
-      </nav>
-
       <div className="mt-auto border-t px-6 pt-4 text-[11px] tracking-[0.08em] text-muted-foreground">
         Logged in as
         <br />

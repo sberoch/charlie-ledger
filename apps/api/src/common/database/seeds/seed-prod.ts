@@ -8,7 +8,8 @@ import { seedTracks } from './seed-tracks';
 // Tier 0 seed — production bootstrap. Idempotent, safe to re-run. Brings a
 // fresh prod database to a usable state: the app_setting singleton, the first
 // admin user (no self-signup exists — someone has to be created out-of-band),
-// and the tier-1 mock catalog via seedTracks().
+// and the tier-1 mock catalog via seedTracks() (which seeds the tag vocabulary
+// before wiring track_tag).
 //
 // Credentials default to the launch admin but are env-overridable so prod can
 // set its own without a code change:

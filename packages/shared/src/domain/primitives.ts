@@ -42,6 +42,28 @@ export function formatMoney(amount: string): string {
   })
 }
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const
+
+/** "2024-01-15" → "Jan 2024". Parsed off the string so no timezone shifts it. */
+export function formatMonthYear(iso: IsoDate): string {
+  const [y, m] = iso.split("-").map(Number) as [number, number]
+  return `${MONTHS[m - 1]} ${y}`
+}
+
+/** A license history entry as "Brand (Jan 2024 – Jan 2025)", or "– ongoing"
+ *  when perpetual (null end date). No fee — license history is share-safe. */
+export function formatLicenseSpan(l: {
+  brandName: string
+  startDate: IsoDate
+  endDate: IsoDate | null
+}): string {
+  const end = l.endDate ? formatMonthYear(l.endDate) : "ongoing"
+  return `${l.brandName} (${formatMonthYear(l.startDate)} – ${end})`
+}
+
 /** Today's date in YYYY-MM-DD, in the given IANA zone (default America/New_York — Charlie's). */
 export function todayIso(
   timeZone = "America/New_York",

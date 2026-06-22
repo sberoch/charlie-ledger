@@ -6,6 +6,7 @@ import { invoice } from './invoice';
 import { lead } from './lead';
 import { license } from './license';
 import { payer } from './payer';
+import { tag, trackTag } from './tag';
 import { track } from './track';
 
 export const brandCategoryRelations = relations(brandCategory, ({ many }) => ({
@@ -32,6 +33,23 @@ export const trackRelations = relations(track, ({ many }) => ({
   licenses: many(license),
   // Demos whose idea was converted into this track (lineage).
   convertedDemos: many(demo),
+  // Tag assignments (governed vocabulary, via the track_tag join).
+  trackTags: many(trackTag),
+}));
+
+export const tagRelations = relations(tag, ({ many }) => ({
+  trackTags: many(trackTag),
+}));
+
+export const trackTagRelations = relations(trackTag, ({ one }) => ({
+  track: one(track, {
+    fields: [trackTag.trackId],
+    references: [track.id],
+  }),
+  tag: one(tag, {
+    fields: [trackTag.tagId],
+    references: [tag.id],
+  }),
 }));
 
 export const licenseRelations = relations(license, ({ one, many }) => ({

@@ -1,9 +1,9 @@
 # Foltz Ledger
 
 A single ledger for Charlie Foltz's one-person music licensing business: it holds the
-licenses, demos, invoices, and payments around a catalog of ~300 owned tracks, and mirrors
-the Disco catalog as the canonical source of tracks. Replaces a patchwork of QuickBooks,
-Disco, and mental tracking.
+licenses, demos, invoices, and payments around a catalog of ~300 owned tracks, the canonical
+source of which now lives in the platform itself. Replaces a patchwork of QuickBooks, Disco,
+and mental tracking.
 
 ## Language
 
@@ -37,10 +37,21 @@ _Avoid_: Music House (as a distinct entity), bill-to, customer.
 ### Catalog & licensing
 
 **Track**:
-A piece of music in Charlie's catalog. A **read-only mirror of Disco** — its identity,
-name, and tags are owned by Disco and propagate one-way on sync; the platform never edits
-or deletes a Track. Identified by its Disco id.
+A piece of music in Charlie's catalog. Loaded directly into the platform (the Disco
+mirror was retired before launch). Its **name** is the natural key — names are unique.
+Tags are platform-owned **Tags** assigned via the catalog, not an attribute baked into the
+Track. `status` (active / archived) is a manual catalog state. Direct track creation/editing
+is not built yet — for now the catalog is seeded.
 _Avoid_: Song, asset.
+
+**Tag**:
+A curated label in Charlie's catalog vocabulary (cinematic, electronic, warm). Platform-owned
+and managed from Settings — created, renamed, and deleted there; deliberately not an enum.
+Case-insensitively unique. A Track carries zero or more; the same Tag is shared across Tracks
+(a many-to-many). Deleting a Tag removes it from every Track that carried it (confirm-then-
+cascade). Powers the tag-chip filter and the **Tag trend**. Was previously owned by Disco;
+ownership moved to the platform when the Disco mirror was retired.
+_Avoid_: Genre, keyword, label.
 
 **License**:
 A grant of a Track's use to a Brand under specific terms (one or more **Usage Types**, term
@@ -155,8 +166,7 @@ come back; surfaced alongside Revenue at Risk on the dashboard.
 **Tag trend**:
 A ranked rollup answering "what styles sell, and to whom": License fees summed by the
 licensed Track's **tag combination**, expandable per Brand. Commitment basis, like
-lifetime sales. Tags come from the Disco mirror; this was the original motivation for
-syncing them.
+lifetime sales. Tags are the platform-owned catalog vocabulary (managed from Settings).
 
 **Report (sales report)**:
 A date-range sales pull grouped by Brand / Payer / Track / Usage Type, on a **cash basis**

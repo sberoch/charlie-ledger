@@ -50,6 +50,13 @@
       "when": 1781635539725,
       "tag": "0006_eager_the_enforcers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782162481765,
+      "tag": "0007_tan_iron_monger",
+      "breakpoints": true
     }
   ]
 }

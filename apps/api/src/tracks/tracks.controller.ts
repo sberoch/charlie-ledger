@@ -27,7 +27,7 @@ function filterSlug(query: TrackExportQuery): string {
     : 'all';
 }
 
-// Read-only by design — the Track mirror is owned by Disco (CONTEXT.md).
+// Read-only for now — direct track creation/editing isn't built yet (CONTEXT.md).
 @Controller('tracks')
 export class TracksController {
   constructor(
@@ -52,13 +52,13 @@ export class TracksController {
     @Query(zodPipe(TrackExportQuerySchema)) query: TrackExportQuery,
     @Res() res: Response,
   ) {
-    const rows = await this.tracks.list(query);
+    const rows = await this.resolveRows(query);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="tracks_${filterSlug(query)}.csv"`,
     );
-    res.send(this.tracks.toCsv(rows, query.financials));
+    res.send(this.tracks.toCsv(rows, query.financials, query.history));
   }
 
   @Get('export.pdf')
@@ -66,13 +66,21 @@ export class TracksController {
     @Query(zodPipe(TrackExportQuerySchema)) query: TrackExportQuery,
     @Res() res: Response,
   ) {
-    const rows = await this.tracks.list(query);
+    const rows = await this.resolveRows(query);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="tracks_${filterSlug(query)}.pdf"`,
     );
-    this.exportPdf.render(rows, query.financials, filterLabel(query)).pipe(res);
+    this.exportPdf
+      .render(rows, query.financials, query.history, filterLabel(query))
+      .pipe(res);
+  }
+
+  /** List rows for an export, enriched with license history when opted in. */
+  private async resolveRows(query: TrackExportQuery) {
+    const rows = await this.tracks.list(query);
+    return query.history ? this.tracks.withLicenseHistory(rows) : rows;
   }
 
   @Get(':id')

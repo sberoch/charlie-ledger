@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
-import { formatMoney, type TrackListItemDto } from '@workspace/shared';
+import {
+  formatLicenseSpan,
+  formatMoney,
+  type TrackListItemDto,
+} from '@workspace/shared';
 
 const INK = '#1a1a1a';
 const MUTED = '#8d8a82';
@@ -83,6 +87,7 @@ export class TrackExportPdfService {
   render(
     rows: TrackListItemDto[],
     financials: boolean,
+    history: boolean,
     filterLabel: string,
   ): PDFKit.PDFDocument {
     const doc = new PDFDocument({ size: 'LETTER', margin: MARGIN });
@@ -90,11 +95,21 @@ export class TrackExportPdfService {
     const right = doc.page.width - MARGIN;
     const cols = financials ? FINANCIAL_COLS : CATALOG_COLS;
 
+    // License history is a full-width caption under each track row (never a
+    // column) so it has room to flow uncapped; indented so it reads as detail.
+    const HIST_INDENT = 12;
+    const HIST_X = MARGIN + HIST_INDENT;
+    const HIST_W = width - HIST_INDENT;
+    const HIST_GAP = 5; // between the row cells and the caption
+    const HIST_LABEL_H = 11;
+
     doc.font('Helvetica-Bold').fontSize(18).fillColor(INK);
     doc.text('CHARLIE FOLTZ MEDIA LLC', MARGIN, MARGIN);
     doc.font('Courier').fontSize(9).fillColor(MUTED);
     doc.text(
-      `TRACK EXPORT · ${financials ? 'WITH FINANCIALS' : 'CATALOG'}`,
+      `TRACK EXPORT · ${financials ? 'WITH FINANCIALS' : 'CATALOG'}${
+        history ? ' · LICENSE HISTORY' : ''
+      }`,
       MARGIN,
       doc.y + 4,
       { characterSpacing: 1.5 },
@@ -150,8 +165,22 @@ export class TrackExportPdfService {
         });
         return { col, w, money, text, h };
       });
-      const rowHeight =
-        TOP_PAD + Math.max(...cells.map((c) => c.h)) + BOTTOM_PAD;
+      const cellsHeight = TOP_PAD + Math.max(...cells.map((c) => c.h));
+
+      // License history caption: every license, inline-flowed (no cap), under
+      // the row. Omitted for tracks with no licenses.
+      const licenses = history ? (row.licenses ?? []) : [];
+      const historyText = licenses.map(formatLicenseSpan).join('   ·   ');
+      let historyHeight = 0;
+      if (licenses.length) {
+        doc.font('Courier').fontSize(ROW_FONT);
+        historyHeight =
+          HIST_GAP +
+          HIST_LABEL_H +
+          doc.heightOfString(historyText, { width: HIST_W });
+      }
+
+      const rowHeight = cellsHeight + historyHeight + BOTTOM_PAD;
 
       if (y + rowHeight > doc.page.height - MARGIN - 60) {
         doc.addPage();
@@ -170,6 +199,16 @@ export class TrackExportPdfService {
         });
         x += cell.w;
       }
+
+      if (licenses.length) {
+        let yy = y + cellsHeight + HIST_GAP;
+        doc.font('Courier').fontSize(7).fillColor(MUTED);
+        doc.text('LICENSED BY', HIST_X, yy, { characterSpacing: 1.5 });
+        yy += HIST_LABEL_H;
+        doc.font('Courier').fontSize(ROW_FONT).fillColor(INK);
+        doc.text(historyText, HIST_X, yy, { width: HIST_W });
+      }
+
       y += rowHeight;
       doc
         .moveTo(MARGIN, y - BOTTOM_PAD / 2)

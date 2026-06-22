@@ -19,6 +19,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Panel } from "@/components/panel"
 import { PageHeader } from "@/components/shell/page-header"
 import { api } from "@/lib/api"
+import { TagsPanel } from "./tags-panel"
 
 function useSettings() {
   return useQuery({
@@ -214,6 +215,8 @@ export function SettingsPage() {
             </div>
           </div>
         </Panel>
+
+        <TagsPanel />
       </div>
     </div>
   )

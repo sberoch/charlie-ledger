@@ -25,7 +25,12 @@ export class DashboardService {
 
     const [licenses, demos, tracks] = await Promise.all([
       this.db.query.license.findMany({
-        with: { track: true, brand: true },
+        // Tags now live in the track_tag join — pull the names through for the
+        // top-tracks chips and the tag-combination trend below.
+        with: {
+          track: { with: { trackTags: { with: { tag: true } } } },
+          brand: true,
+        },
       }),
       this.db.query.demo.findMany({ with: { brand: true, payer: true } }),
       this.db.query.track.findMany(),
@@ -105,7 +110,7 @@ export class DashboardService {
     for (const l of licenses) {
       const entry = byTrack.get(l.trackId) ?? {
         name: l.track.name,
-        tags: l.track.tags,
+        tags: l.track.trackTags.map((tt) => tt.tag.name),
         fees: [],
       };
       entry.fees.push(l.fee);
@@ -153,7 +158,7 @@ export class DashboardService {
     };
     const byCombo = new Map<string, Combo>();
     for (const l of licenses) {
-      const tags = [...l.track.tags].sort();
+      const tags = l.track.trackTags.map((tt) => tt.tag.name).sort();
       const key = tags.join('|');
       const entry: Combo = byCombo.get(key) ?? {
         tags,

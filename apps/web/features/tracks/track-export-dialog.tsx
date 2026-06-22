@@ -35,6 +35,7 @@ export function TrackExportDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [tag, setTag] = useState(currentTag ?? ALL)
+  const [history, setHistory] = useState(false)
   const [financials, setFinancials] = useState(false)
 
   // Re-seed from the page's active tag each time the dialog opens, so the
@@ -48,6 +49,7 @@ export function TrackExportDialog({
     const params = new URLSearchParams()
     if (tag !== ALL) params.set("tag", tag)
     if (search) params.set("search", search)
+    if (history) params.set("history", "true")
     if (financials) params.set("financials", "true")
     const qs = params.toString()
     const slug = tag === ALL ? "all" : tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")
@@ -91,6 +93,19 @@ export function TrackExportDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <Checkbox
+              checked={history}
+              onCheckedChange={(c) => setHistory(c === true)}
+            />
+            <span className="text-sm">
+              Include license history
+              <span className="block text-xs text-muted-foreground">
+                Which brands licensed each track, and for how long. No fees.
+              </span>
+            </span>
+          </label>
 
           <label className="flex cursor-pointer items-center gap-2.5">
             <Checkbox

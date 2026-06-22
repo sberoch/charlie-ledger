@@ -61,7 +61,7 @@ export function TrackDetailPage({ id }: { id: string }) {
         </Button>
       </div>
 
-      {/* Header — read-only by design: Tracks mirror Disco, no edit button. */}
+      {/* Header — read-only for now: track editing isn't built yet, no edit button. */}
       <div className="mb-7 flex flex-col gap-5 border-b pb-7 md:grid md:grid-cols-[90px_1fr_auto] md:items-center md:gap-7">
         <div className="flex size-16 items-center justify-center bg-primary font-heading text-2xl text-primary-foreground md:size-[90px] md:text-3xl">
           {track.name.charAt(0)}

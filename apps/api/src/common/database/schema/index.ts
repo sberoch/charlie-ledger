@@ -7,6 +7,7 @@ export * from './brand-category';
 export * from './brand';
 export * from './payer';
 export * from './track';
+export * from './tag';
 export * from './license';
 export * from './demo';
 export * from './invoice';

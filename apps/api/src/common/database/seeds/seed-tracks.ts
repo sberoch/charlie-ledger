@@ -1,12 +1,14 @@
 import 'dotenv/config';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
-import { track } from '../schema';
+import { tag, track, trackTag } from '../schema';
+import { seedTags } from './seed-tags';
 
-// Tier 1 seed — mock Disco catalog, runs everywhere including prod at launch.
-// Tracks carry mock-* disco_ids: when the real Disco sync lands it upserts by
-// disco_id, finds none of these in Disco's response, and soft-archives them via
-// the absent-track rule. The replacement path is the sync's own semantics.
+// Tier 1 seed — the mock catalog, runs everywhere including prod at launch.
+// Tracks are loaded directly (Disco is retired); `name` is the natural key, so
+// re-running upserts by name and is non-destructive. Tags are platform-owned —
+// seedTags() guarantees the vocabulary first, then each track's tags are wired
+// through the track_tag join (reconciled on every run).
 //
 // The first 15 are the prototype's validated tracks, exact names and tags, so
 // every screen Charlie approved shows him data he has already seen.
@@ -36,16 +38,37 @@ const TRACKS: Array<{ name: string; tags: string[] }> = [
 ];
 
 export async function seedTracks() {
-  for (const [i, t] of TRACKS.entries()) {
-    const discoId = `mock-${String(i + 1).padStart(3, '0')}`;
-    await db
+  // The vocabulary must exist before track_tag can reference it.
+  await seedTags();
+
+  // Resolve tag names → ids once for the whole catalog.
+  const tagRows = await db.select({ id: tag.id, name: tag.name }).from(tag);
+  const tagIdByName = new Map(tagRows.map((r) => [r.name, r.id]));
+
+  for (const t of TRACKS) {
+    // Upsert by name (the natural key); keep it active on re-seed.
+    const [row] = await db
       .insert(track)
-      .values({ discoId, name: t.name, tags: t.tags })
+      .values({ name: t.name })
       .onConflictDoUpdate({
-        target: track.discoId,
-        set: { name: t.name, tags: t.tags },
-      });
+        target: track.name,
+        set: { status: 'active' },
+      })
+      .returning({ id: track.id });
+
+    // Reconcile assignments: clear then re-insert this track's tags.
+    await db.delete(trackTag).where(eq(trackTag.trackId, row.id));
+    const tagIds = t.tags.map((name) => {
+      const id = tagIdByName.get(name);
+      if (!id) throw new Error(`Seed tag missing from vocabulary: ${name}`);
+      return id;
+    });
+    if (tagIds.length > 0)
+      await db
+        .insert(trackTag)
+        .values(tagIds.map((tagId) => ({ trackId: row.id, tagId })));
   }
+
   const [{ count }] = (
     await db.execute<{ count: string }>(sql`SELECT count(*) FROM ${track}`)
   ).rows;
