@@ -15,6 +15,7 @@ import { LeadsModule } from './leads/leads.module';
 import { LicensesModule } from './licenses/licenses.module';
 import { loggerOptions } from './common/logger/logger.config';
 import { PartiesModule } from './parties/parties.module';
+import { RemindersModule } from './reminders/reminders.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { TagsModule } from './tags/tags.module';
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module';
     ReportsModule,
     DigestModule,
     SettingsModule,
+    RemindersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

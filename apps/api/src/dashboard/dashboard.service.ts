@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { desc, isNotNull } from 'drizzle-orm';
+import { desc, isNotNull, isNull } from 'drizzle-orm';
 import {
   EXCLUSIVITY_TIER_SHORT,
   TERM_LENGTH_SHORT,
@@ -14,7 +14,7 @@ import {
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
-import { demo, invoice, license } from '../common/database/schema';
+import { demo, invoice, license, reminder } from '../common/database/schema';
 
 @Injectable()
 export class DashboardService {
@@ -23,7 +23,7 @@ export class DashboardService {
   async snapshot(): Promise<DashboardDto> {
     const today = todayIso();
 
-    const [licenses, demos, tracks] = await Promise.all([
+    const [licenses, demos, tracks, openReminders] = await Promise.all([
       this.db.query.license.findMany({
         // Tags now live in the track_tag join — pull the names through for the
         // top-tracks chips and the tag-combination trend below.
@@ -34,6 +34,10 @@ export class DashboardService {
       }),
       this.db.query.demo.findMany({ with: { brand: true, payer: true } }),
       this.db.query.track.findMany(),
+      // Open reminders (ADR-0007) — completed ones drop off entirely. Overdue
+      // ones (due_on < today) are NOT filtered: unlike a derived expiration, a
+      // reminder persists past its date until done.
+      this.db.query.reminder.findMany({ where: isNull(reminder.completedAt) }),
     ]);
 
     const active = licenses.filter(
@@ -71,6 +75,24 @@ export class DashboardService {
           fee: d.fee,
           urgency: expirationState(d.holdEndsAt, today).urgency,
         })),
+      // Reminders: sourceId is the reminder's OWN id (the "done" action targets
+      // it). Overdue (daysOut < 0) renders urgent and floats to the top; no fee.
+      ...openReminders.map((r) => {
+        const daysOut = daysBetween(today, r.dueOn);
+        return {
+          kind: 'reminder' as const,
+          sourceId: r.id,
+          date: r.dueOn,
+          daysOut,
+          title: r.title,
+          meta: r.description,
+          fee: null,
+          urgency:
+            daysOut < 0
+              ? ('urgent' as const)
+              : expirationState(r.dueOn, today).urgency,
+        };
+      }),
     ]
       .sort((a, b) => a.daysOut - b.daysOut)
       .slice(0, 24);

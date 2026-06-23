@@ -40,6 +40,29 @@ export const TrackListQuerySchema = z.object({
 })
 export type TrackListQuery = z.infer<typeof TrackListQuerySchema>
 
+// Create — name + tags. Tags are submitted as a flat name array and resolved
+// server-side via case-insensitive pick-or-create (an unknown name mints a new
+// Tag), then synced into track_tag. `status` is never set here — a new Track is
+// always active; archive/unarchive is a separate action. See CONTEXT.md / ADR-0006.
+export const CreateTrackSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  // Always present (the form sends `[]` for an untagged track); kept required —
+  // not defaulted — so the RHF input/output types stay identical.
+  tags: z.array(z.string().trim().min(1).max(80)),
+})
+export type CreateTrackInput = z.infer<typeof CreateTrackSchema>
+
+// Update — same shape, all optional. An omitted `tags` leaves assignments
+// untouched; an empty array clears them.
+export const UpdateTrackSchema = CreateTrackSchema.partial()
+export type UpdateTrackInput = z.infer<typeof UpdateTrackSchema>
+
+// Archive / unarchive — the only door to `status` (PATCH /tracks/:id/status).
+export const UpdateTrackStatusSchema = z.object({
+  status: TrackStatusSchema,
+})
+export type UpdateTrackStatusInput = z.infer<typeof UpdateTrackStatusSchema>
+
 // Track export — the Tracks list rendered to CSV/PDF, scoped to the active
 // tag/search filter (CONTEXT.md: "Track export"). `financials` opts into the
 // license-derived columns; default off keeps the export a share-safe catalog.

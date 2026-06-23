@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Disc3, FileBadge, Plus } from "lucide-react"
+import { Disc3, FileBadge, Music, Plus } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -52,10 +52,18 @@ export function Fab() {
           <Link
             href="/demos/new"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-2 py-4 text-sm font-semibold"
+            className="flex items-center gap-3 border-b border-border-soft px-2 py-4 text-sm font-semibold"
           >
             <Disc3 className="size-5 text-ink-soft" strokeWidth={1.8} />
             New Demo
+          </Link>
+          <Link
+            href="/tracks/new"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-2 py-4 text-sm font-semibold"
+          >
+            <Music className="size-5 text-ink-soft" strokeWidth={1.8} />
+            New Track
           </Link>
         </div>
       </SheetContent>

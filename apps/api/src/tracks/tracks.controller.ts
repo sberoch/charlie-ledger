@@ -1,10 +1,27 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
 import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import {
+  CreateTrackSchema,
   TrackExportQuerySchema,
   TrackListQuerySchema,
+  UpdateTrackSchema,
+  UpdateTrackStatusSchema,
+  type CreateTrackInput,
   type TrackExportQuery,
   type TrackListQuery,
+  type UpdateTrackInput,
+  type UpdateTrackStatusInput,
 } from '@workspace/shared';
 import { zodPipe } from '../common/zod-validation.pipe';
 import { TrackExportPdfService } from './track-export-pdf.service';
@@ -13,6 +30,8 @@ import { TracksService } from './tracks.service';
 /** Human label for the active filter, shown on the PDF header. */
 function filterLabel(query: TrackExportQuery): string {
   const parts: string[] = [query.tag ? `Tag · ${query.tag}` : 'All tags'];
+  if (query.status)
+    parts.push(query.status === 'archived' ? 'Archived' : 'Active');
   if (query.search) parts.push(`Search · "${query.search}"`);
   return parts.join('  ·  ');
 }
@@ -27,7 +46,8 @@ function filterSlug(query: TrackExportQuery): string {
     : 'all';
 }
 
-// Read-only for now — direct track creation/editing isn't built yet (CONTEXT.md).
+// Catalog CRUD plus the read models and exports. Mutations mirror the licenses
+// controller (zodPipe bodies, session-attributed). See CONTEXT.md / ADR-0006.
 @Controller('tracks')
 export class TracksController {
   constructor(
@@ -86,5 +106,37 @@ export class TracksController {
   @Get(':id')
   detail(@Param('id') id: string) {
     return this.tracks.detail(id);
+  }
+
+  @Post()
+  create(
+    @Body(zodPipe(CreateTrackSchema)) body: CreateTrackInput,
+    @Session() session: UserSession,
+  ) {
+    return this.tracks.create(body, session.user.id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body(zodPipe(UpdateTrackSchema)) body: UpdateTrackInput,
+    @Session() session: UserSession,
+  ) {
+    return this.tracks.update(id, body, session.user.id);
+  }
+
+  // Named action — the only door to `status` (archive / unarchive), modeled on
+  // PATCH /licenses/:id/renewed-to rather than overloading the update body.
+  @Patch(':id/status')
+  setStatus(
+    @Param('id') id: string,
+    @Body(zodPipe(UpdateTrackStatusSchema)) body: UpdateTrackStatusInput,
+  ) {
+    return this.tracks.setStatus(id, body.status);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.tracks.remove(id);
   }
 }

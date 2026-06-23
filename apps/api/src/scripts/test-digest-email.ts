@@ -46,6 +46,20 @@ const SAMPLE: DigestContent = {
       daysOverdue: 12,
     },
   ],
+  reminders: [
+    {
+      title: 'Register Empire × Subaru for broadcast royalties',
+      description:
+        'Broadcast usage. Register this license to pursue broadcast royalties.',
+      inDays: 4,
+    },
+    {
+      title: 'Register Reset Self × Hims for broadcast royalties',
+      description:
+        'Broadcast usage. Register this license to pursue broadcast royalties.',
+      inDays: -3,
+    },
+  ],
 };
 
 async function main() {
@@ -65,7 +79,8 @@ async function main() {
     const empty =
       content.expiringLicenses.length === 0 &&
       content.liftingHolds.length === 0 &&
-      content.overdueInvoices.length === 0;
+      content.overdueInvoices.length === 0 &&
+      content.reminders.length === 0;
     if (empty) {
       console.log(
         'DB digest window is empty — falling back to sample fixture.',
@@ -89,7 +104,8 @@ async function main() {
   console.log(
     `Content: ${content.expiringLicenses.length} expiring · ` +
       `${content.liftingHolds.length} holds · ` +
-      `${content.overdueInvoices.length} overdue`,
+      `${content.overdueInvoices.length} overdue · ` +
+      `${content.reminders.length} reminders`,
   );
 
   const apiKey = process.env.RESEND_API_KEY;

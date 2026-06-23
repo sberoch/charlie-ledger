@@ -37,7 +37,7 @@ export const demo = pgTable(
     holdEndsAt: date('hold_ends_at').notNull(),
     status: demoStatus('status').notNull().default('open'),
     // Optional, set any time after conversion — independent of status. The
-    // mirrored Track only exists once Charlie builds it in Disco afterwards.
+    // linked Track only exists once Charlie creates it in the platform afterwards.
     convertedTrackId: uuid('converted_track_id').references(() => track.id, {
       onDelete: 'set null',
     }),

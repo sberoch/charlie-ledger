@@ -41,7 +41,8 @@ export function EntityCombobox({
   items: ComboboxItem[]
   value: string | null
   onSelect: (item: ComboboxItem) => void
-  /** Omit to disable creation (e.g. Track — a read-only Disco mirror). */
+  /** Omit to disable creation (e.g. the License form's Track field, which picks
+   *  from the existing catalog — tracks are created on the Tracks screen). */
   onCreate?: (name: string) => void
   placeholder: string
   emptyHint?: string

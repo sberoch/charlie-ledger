@@ -11,6 +11,7 @@ import {
   TERM_LENGTH_SHORT,
   formatUsageTypes,
   normalizeUsageTypes,
+  addDays,
   defaultEndDate,
   deriveInvoiceStatus,
   expirationState,
@@ -29,8 +30,20 @@ import {
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
-import { brand, license, payer, track } from '../common/database/schema';
+import {
+  brand,
+  license,
+  payer,
+  reminder,
+  track,
+} from '../common/database/schema';
 import { InvoiceIssuerService } from '../invoices/invoice-issuer.service';
+
+// The broadcast-royalty rule: a License created with `broadcast` usage gets a
+// Reminder this many days out, so Charlie remembers to register it to pursue
+// broadcast royalties (royalties only matter enough to chase for broadcast).
+// Create-time only; hardcoded, not data-driven. See CONTEXT.md and ADR-0007.
+const BROADCAST_ROYALTY_REMINDER_DAYS = 30;
 
 const RELATIONS = {
   track: true,
@@ -156,6 +169,8 @@ export class LicensesService {
     if (!trackRow) throw new BadRequestException('Track not found');
     if (!brandRow) throw new BadRequestException('Brand not found');
 
+    const usageTypes = normalizeUsageTypes(input.usageTypes);
+
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(license)
@@ -163,7 +178,7 @@ export class LicensesService {
           trackId: input.trackId,
           brandId: input.brandId,
           payerId: input.payerId,
-          usageTypes: normalizeUsageTypes(input.usageTypes),
+          usageTypes,
           exclusivityTier: input.exclusivityTier,
           termLength: input.termLength,
           fee: input.fee,
@@ -185,12 +200,24 @@ export class LicensesService {
         description: licenseInvoiceDescription({
           trackName: trackRow.name,
           brandName: brandRow.name,
-          usageTypes: normalizeUsageTypes(input.usageTypes),
+          usageTypes,
           exclusivityTier: input.exclusivityTier,
           terms: input.terms,
         }),
         userId,
       });
+      // Broadcast-royalty rule (ADR-0007) — same transaction as the license +
+      // invoice, create-time only, never re-run on edit.
+      if (usageTypes.includes('broadcast')) {
+        await tx.insert(reminder).values({
+          title: `Register ${trackRow.name} × ${brandRow.name} for broadcast royalties`,
+          description:
+            'Broadcast usage. Register this license to pursue broadcast royalties.',
+          dueOn: addDays(todayIso(), BROADCAST_ROYALTY_REMINDER_DAYS),
+          licenseId: row.id,
+          createdBy: userId,
+        });
+      }
       return row;
     });
     return this.detail(created.id);

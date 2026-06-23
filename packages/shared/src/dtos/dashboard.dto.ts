@@ -10,18 +10,26 @@ export const DashboardSummarySchema = z.object({
   expiringThisWeekCount: z.number().int(),
 })
 
-/** One dot on the upcoming timeline — a license expiring (risk, rust/ochre)
- *  or a demo hold lifting (opportunity, distinct marker). */
+/** One dot on the upcoming timeline — a license expiring (risk, rust/ochre),
+ *  a demo hold lifting (opportunity, distinct marker), or a Reminder (a stored,
+ *  actionable nudge; ADR-0007). Expirations/hold-lifts are derived live and drop
+ *  off at their date; a reminder persists past its date as overdue until done. */
 export const TimelineItemSchema = z.object({
-  kind: z.enum(["license_expiration", "demo_hold_lift"]),
+  kind: z.enum(["license_expiration", "demo_hold_lift", "reminder"]),
+  /** Source entity id — the license/demo for derived items, and the reminder's
+   *  OWN id for a reminder (the "done" action targets the reminder itself). */
   sourceId: UuidSchema,
   date: IsoDateSchema,
+  /** Days until `date`; negative when overdue (reminders only — derived items
+   *  never go negative, they leave the timeline at their date). */
   daysOut: z.number().int(),
-  /** "Empire × Subaru" / "Walmart_SpringSale_v1a". */
+  /** "Empire × Subaru" / "Walmart_SpringSale_v1a" / a reminder's title. */
   title: z.string(),
-  /** "Broadcast · 1yr · Cat. Exclusive" / "Hold lifts · Music house name". */
+  /** "Broadcast · 1yr · Cat. Exclusive" / "Hold lifts · Music house name" / a
+   *  reminder's description. */
   meta: z.string(),
-  fee: MoneySchema,
+  /** Null for reminders, which carry no fee. */
+  fee: MoneySchema.nullable(),
   urgency: z.enum(["urgent", "expiring_soon", "active", "expired"]),
 })
 export type TimelineItemDto = z.infer<typeof TimelineItemSchema>

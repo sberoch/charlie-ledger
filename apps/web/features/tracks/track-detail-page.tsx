@@ -2,14 +2,26 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { formatMoney, todayIso } from "@workspace/shared"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { UrgencyPill } from "@/components/pills"
 import { formatDate } from "@/lib/format"
 import { useLicenses } from "@/features/licenses/hooks"
-import { useTrack } from "./hooks"
+import { useDeleteTrack, useSetTrackStatus, useTrack } from "./hooks"
 
 function SectionHead({
   children,
@@ -30,10 +42,31 @@ export function TrackDetailPage({ id }: { id: string }) {
   const router = useRouter()
   const { data: track, isPending } = useTrack(id)
   const { data: licenses } = useLicenses({ trackId: id })
+  const setStatus = useSetTrackStatus(id)
+  const deleteTrack = useDeleteTrack()
 
   if (isPending || !track) {
     return <Skeleton className="h-64" />
   }
+
+  const archived = track.status === "archived"
+  const demoLinks = track.convertedDemos.length
+
+  const toggleStatus = () =>
+    setStatus.mutate(archived ? "active" : "archived", {
+      onSuccess: () =>
+        toast.success(archived ? "Track restored" : "Track archived"),
+      onError: (e) => toast.error(e.message),
+    })
+
+  const confirmDelete = () =>
+    deleteTrack.mutate(track.id, {
+      onSuccess: () => {
+        toast.success("Track deleted")
+        router.push("/tracks")
+      },
+      onError: (e) => toast.error(e.message),
+    })
 
   const maxQuarter = Math.max(
     1,
@@ -46,7 +79,7 @@ export function TrackDetailPage({ id }: { id: string }) {
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-3 pb-4">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 pb-4">
         <button
           type="button"
           onClick={() => router.back()}
@@ -54,14 +87,82 @@ export function TrackDetailPage({ id }: { id: string }) {
         >
           ← Back
         </button>
-        <Button asChild>
-          <Link href={`/licenses/new?trackId=${track.id}`}>
-            + License This Track
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/tracks/${track.id}/edit`}>Edit</Link>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={toggleStatus}
+            disabled={setStatus.isPending}
+          >
+            {archived ? "Restore" : "Archive"}
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="text-muted-foreground hover:text-destructive"
+              >
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              {track.licenseCount > 0 ? (
+                <>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Can&rsquo;t delete &ldquo;{track.name}&rdquo;
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This track has {track.licenseCount} license
+                      {track.licenseCount === 1 ? "" : "s"}, so its history is
+                      preserved. Archive it instead to retire it from the
+                      catalog.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Close</AlertDialogCancel>
+                    <AlertDialogAction onClick={toggleStatus}>
+                      {archived ? "Restore" : "Archive instead"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </>
+              ) : (
+                <>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Delete &ldquo;{track.name}&rdquo;?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This can&rsquo;t be undone.
+                      {demoLinks > 0
+                        ? ` ${demoLinks} demo conversion link${demoLinks === 1 ? "" : "s"} will be cleared.`
+                        : ""}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={confirmDelete}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </>
+              )}
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button asChild>
+            <Link href={`/licenses/new?trackId=${track.id}`}>
+              + License This Track
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* Header — read-only for now: track editing isn't built yet, no edit button. */}
+      {/* Header */}
       <div className="mb-7 flex flex-col gap-5 border-b pb-7 md:grid md:grid-cols-[90px_1fr_auto] md:items-center md:gap-7">
         <div className="flex size-16 items-center justify-center bg-primary font-heading text-2xl text-primary-foreground md:size-[90px] md:text-3xl">
           {track.name.charAt(0)}

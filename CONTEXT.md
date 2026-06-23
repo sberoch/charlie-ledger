@@ -37,17 +37,24 @@ _Avoid_: Music House (as a distinct entity), bill-to, customer.
 ### Catalog & licensing
 
 **Track**:
-A piece of music in Charlie's catalog. Loaded directly into the platform (the Disco
-mirror was retired before launch). Its **name** is the natural key — names are unique.
-Tags are platform-owned **Tags** assigned via the catalog, not an attribute baked into the
-Track. `status` (active / archived) is a manual catalog state. Direct track creation/editing
-is not built yet — for now the catalog is seeded.
+A piece of music in Charlie's catalog. Created, edited, and removed directly in the platform
+(the Disco mirror was retired before launch); seeding only handles the initial catalog load.
+Its **name** is the natural key — **case-insensitively unique**. Tags are platform-owned
+**Tags** assigned on the Track (pick-or-create), not an attribute baked into the Track.
+`status` (active / archived) is a manual catalog state, changed only via the **Archive /
+Unarchive** action — never an edit field. A Track can be **archived** (reversible; retires it
+from the default catalog view) at any time, but **hard-deleted only when it carries no
+Licenses** — its financial history blocks deletion, so archive is the path for tracks with
+history. Deleting a Track clears its tag assignments and nulls any Demo conversion link that
+points at it; Licenses block the delete before it is ever reached. See ADR-0006.
 _Avoid_: Song, asset.
 
 **Tag**:
 A curated label in Charlie's catalog vocabulary (cinematic, electronic, warm). Platform-owned
-and managed from Settings — created, renamed, and deleted there; deliberately not an enum.
-Case-insensitively unique. A Track carries zero or more; the same Tag is shared across Tracks
+and deliberately not an enum. Case-insensitively unique. **Created** either from Settings or
+inline while editing a Track (pick-or-create — typing an unknown name mints it); **renamed and
+deleted** only from Settings.
+A Track carries zero or more; the same Tag is shared across Tracks
 (a many-to-many). Deleting a Tag removes it from every Track that carried it (confirm-then-
 cascade). Powers the tag-chip filter and the **Tag trend**. Was previously owned by Disco;
 ownership moved to the platform when the Disco mirror was retired.
@@ -82,9 +89,9 @@ _Avoid_: Pitch, cue, spec track.
 
 **Conversion**:
 Charlie's decision that a Demo's idea will become a library Track. Flips the Demo's status
-`open → converted` — a standalone decision that requires **no** Track to exist yet (he
-builds the Track in Disco afterwards). He may **optionally** link the resulting Track later
-for his own reference; the link is never required to convert.
+`open → converted` — a standalone decision that requires **no** Track to exist yet. He may
+**afterwards** create the Track directly in the platform and **optionally** link it for his
+own reference; the link is never required to convert, and conversion never auto-creates a Track.
 _Avoid_: Promote, publish.
 
 **Renewal**:
@@ -148,6 +155,34 @@ for an even-looking view. Deliberately walled off from the rest of the ledger: a
 feeds lifetime sales, demo income, invoices, or the Report — it is his private record only.
 _Avoid_: Prospect, payment, receipt, installment.
 
+### Reminders
+
+**Reminder**:
+A dated nudge for Charlie to act on something later, surfaced on the dashboard **timeline**
+(alongside license expirations and demo hold-lifts) and in the weekly **digest**. Always
+**actionable** (a "do this" by a date), never a passive informational ping. Carries a
+**stored, snapshotted** title and description, a **date**, and optional independent links to
+a License, Track, Brand, and/or Demo (`set null` on delete, the way a [[lead]] does) — the
+links are for click-through, never for rendering the title. Unlike every other timeline item
+(which is *derived live* from another record), a Reminder is a **stored, stateful row**: it
+is **open → done** via one nullable `completed_at`. An open Reminder shows on the timeline
+**from creation until done**, and an open Reminder **past its date does not vanish** the way
+an expiration does — it persists as **urgent/overdue** (floated to the top) and resurfaces in
+the digest, since the whole point is that Charlie not forget it. Marking it **done** removes
+it entirely (it does not move to the activity feed). Born **by a rule** (the broadcast-royalty
+rule below) — no manual create/edit in this cut; the only user action is **done**. See ADR-0007.
+_Avoid_: Notification, alert, toast, push, to-do.
+
+**Broadcast-royalty reminder** (the first, and so far only, Reminder rule):
+When a [[license]] is created with `broadcast` among its usage types, one Reminder is created
+in the same transaction, dated the license's **creation date + 30 days**, linked to that
+License — so Charlie remembers to register the broadcast license to pursue royalties (royalties
+only matter enough to chase for broadcast). Title: `Register {Track} × {Brand} for broadcast
+royalties`; description: `Broadcast usage. Register this license to pursue broadcast royalties.`
+**Create-time only** — it does not react to later license edits (adding broadcast via an edit
+creates nothing; removing it leaves the reminder, which Charlie can mark done). The rule is
+**hardcoded** (the table and surfacing are generic; the triggers are not data-driven).
+
 ### Sales & reporting
 
 **Lifetime sales**:
@@ -179,8 +214,8 @@ total by design**. The grand total stays the true Σ of paid invoices; only the 
 double-count. See ADR-0004.
 
 **Track export**:
-The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag and search
-filter** so the export always equals the on-screen view — one row per Track, never a
+The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag, status, and
+search filter** so the export always equals the on-screen view — one row per Track, never a
 per-License breakdown. Carries a **with / without financials** choice (default *without*):
 *without* is a share-safe catalog (`Track · Tags · Status`); *with* adds the
 license-derived columns (`Licenses · Lifetime sales · Last licensed`) and a footer total of
@@ -201,9 +236,11 @@ _Avoid_: Download, dump, backup.
 - The mockup's year-based invoice display ("INV-2026-046") implied per-year numbering.
   Resolved: one continuous gapless sequence rendered as `INV-0046`; no year component
   (ADR-0001 unchanged).
-- The mockup's "Price" label, "Edit Metadata" button (Track is read-only), and the
-  drawer's missing Payer field were resolved in the domain's favor: **Fee**, no track
-  editing, Payer required with pick-or-create.
+- The mockup's "Price" label and the drawer's missing Payer field were resolved in the
+  domain's favor: **Fee**, Payer required with pick-or-create. The mockup's "Edit Metadata"
+  button was initially dropped (Track was read-only at launch); Tracks are now fully
+  catalog-mutable — created, edited, archived, and (when license-free) deleted in the
+  platform. See ADR-0006.
 
 ## Example dialogue
 
@@ -220,5 +257,5 @@ _Avoid_: Download, dump, backup.
 > **Charlie:** That's a Demo, not a License. Brand is Walmart, the Payer is the music house.
 > It's got a 3-month hold; once that lifts I can turn the idea into a real track.
 > **Dev:** "Turn into a track" — you pick the track when you convert?
-> **Charlie:** No. I just mark it Converted — the decision. I build the actual track in Disco
-> afterward; it shows up here on the next sync and I can link it then if I want.
+> **Charlie:** No. I just mark it Converted — the decision. I build the actual track here
+> afterward and link it if I want — but converting doesn't require one.

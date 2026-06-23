@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, lte } from 'drizzle-orm';
 import { Resend } from 'resend';
 import {
   EXCLUSIVITY_TIER_SHORT,
@@ -15,7 +15,7 @@ import {
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
-import { appSetting, user } from '../common/database/schema';
+import { appSetting, reminder, user } from '../common/database/schema';
 
 export interface DigestContent {
   lookaheadDays: number;
@@ -36,6 +36,12 @@ export interface DigestContent {
     amount: string;
     daysOverdue: number;
   }>;
+  reminders: Array<{
+    title: string;
+    description: string;
+    /** Days until due; negative when already overdue (ADR-0007). */
+    inDays: number;
+  }>;
 }
 
 /**
@@ -55,7 +61,8 @@ export class DigestService {
     const isEmpty =
       content.expiringLicenses.length === 0 &&
       content.liftingHolds.length === 0 &&
-      content.overdueInvoices.length === 0;
+      content.overdueInvoices.length === 0 &&
+      content.reminders.length === 0;
     if (isEmpty) {
       this.logger.log('Digest: nothing in the window — not sending');
       return;
@@ -71,7 +78,7 @@ export class DigestService {
     const lookaheadDays = settings?.digestLookaheadDays ?? 7;
     const horizon = addDays(today, lookaheadDays);
 
-    const [licenses, demos, invoices] = await Promise.all([
+    const [licenses, demos, invoices, dueReminders] = await Promise.all([
       this.db.query.license.findMany({ with: { track: true, brand: true } }),
       this.db.query.demo.findMany({ with: { brand: true } }),
       this.db.query.invoice.findMany({
@@ -79,6 +86,12 @@ export class DigestService {
           license: { with: { track: true, brand: true } },
           demo: true,
         },
+      }),
+      // Open reminders due within the window — and crucially the OVERDUE ones
+      // (due_on < today), the one spot reminders diverge from the forward-only
+      // sections: an overdue nudge is exactly what the digest must resurface.
+      this.db.query.reminder.findMany({
+        where: and(isNull(reminder.completedAt), lte(reminder.dueOn, horizon)),
       }),
     ]);
 
@@ -117,6 +130,14 @@ export class DigestService {
           amount: inv.amount,
           daysOverdue: -daysBetween(today, inv.dueDate),
         })),
+      reminders: dueReminders
+        // Ascending inDays = most-overdue first (most negative), then soonest.
+        .map((r) => ({
+          title: r.title,
+          description: r.description,
+          inDays: daysBetween(today, r.dueOn),
+        }))
+        .sort((a, b) => a.inDays - b.inDays),
     };
   }
 
@@ -126,7 +147,7 @@ export class DigestService {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       this.logger.warn(
-        `Digest built (${content.expiringLicenses.length} expiring, ${content.liftingHolds.length} holds, ${content.overdueInvoices.length} overdue) but RESEND_API_KEY is unset — skipping send`,
+        `Digest built (${content.expiringLicenses.length} expiring, ${content.liftingHolds.length} holds, ${content.overdueInvoices.length} overdue, ${content.reminders.length} reminders) but RESEND_API_KEY is unset — skipping send`,
       );
       return { sent: false, reason: 'RESEND_API_KEY unset' };
     }
@@ -139,7 +160,7 @@ export class DigestService {
     await resend.emails.send({
       from: process.env.DIGEST_FROM ?? 'Foltz Ledger <ledger@charliefoltz.com>',
       to: recipients,
-      subject: `This week on the ledger — ${content.expiringLicenses.length} expiring · ${content.liftingHolds.length} holds lifting · ${content.overdueInvoices.length} overdue`,
+      subject: `This week on the ledger — ${content.expiringLicenses.length} expiring · ${content.liftingHolds.length} holds lifting · ${content.overdueInvoices.length} overdue · ${content.reminders.length} reminders`,
       html: this.toHtml(content),
     });
     this.logger.log(`Digest sent to ${recipients.length} recipient(s)`);
@@ -185,6 +206,16 @@ export class DigestService {
             o.number,
             o.billTo,
             `${formatMoney(o.amount)} · ${o.daysOverdue}d late`,
+          ),
+        ),
+      )}
+      ${section(
+        'Reminders',
+        c.reminders.map((r) =>
+          row(
+            r.title,
+            r.description,
+            r.inDays < 0 ? `${-r.inDays}d overdue` : `${r.inDays}d`,
           ),
         ),
       )}

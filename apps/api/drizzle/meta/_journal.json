@@ -57,6 +57,20 @@
       "when": 1782162481765,
       "tag": "0007_tan_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782219889430,
+      "tag": "0008_track_name_ci_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782219997058,
+      "tag": "0009_gifted_maverick",
+      "breakpoints": true
     }
   ]
 }

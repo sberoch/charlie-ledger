@@ -6,6 +6,7 @@ import { invoice } from './invoice';
 import { lead } from './lead';
 import { license } from './license';
 import { payer } from './payer';
+import { reminder } from './reminder';
 import { tag, trackTag } from './tag';
 import { track } from './track';
 
@@ -22,6 +23,8 @@ export const brandRelations = relations(brand, ({ one, many }) => ({
   demos: many(demo),
   // Personal-ledger lines optionally attributed to this brand (ADR-0005).
   leads: many(lead),
+  // Reminders optionally linked to this brand (ADR-0007).
+  reminders: many(reminder),
 }));
 
 export const payerRelations = relations(payer, ({ many }) => ({
@@ -35,6 +38,8 @@ export const trackRelations = relations(track, ({ many }) => ({
   convertedDemos: many(demo),
   // Tag assignments (governed vocabulary, via the track_tag join).
   trackTags: many(trackTag),
+  // Reminders optionally linked to this track (ADR-0007).
+  reminders: many(reminder),
 }));
 
 export const tagRelations = relations(tag, ({ many }) => ({
@@ -77,6 +82,9 @@ export const licenseRelations = relations(license, ({ one, many }) => ({
   invoices: many(invoice),
   // Personal-ledger lines optionally attributed to this license (ADR-0005).
   leads: many(lead),
+  // Reminders optionally linked to this license — e.g. the broadcast-royalty
+  // reminder born on create (ADR-0007).
+  reminders: many(reminder),
 }));
 
 export const demoRelations = relations(demo, ({ one, many }) => ({
@@ -96,6 +104,8 @@ export const demoRelations = relations(demo, ({ one, many }) => ({
   invoices: many(invoice),
   // Personal-ledger lines optionally attributed to this demo (ADR-0005).
   leads: many(lead),
+  // Reminders optionally linked to this demo (ADR-0007).
+  reminders: many(reminder),
 }));
 
 export const leadRelations = relations(lead, ({ one }) => ({
@@ -109,6 +119,25 @@ export const leadRelations = relations(lead, ({ one }) => ({
   }),
   demo: one(demo, {
     fields: [lead.demoId],
+    references: [demo.id],
+  }),
+}));
+
+export const reminderRelations = relations(reminder, ({ one }) => ({
+  license: one(license, {
+    fields: [reminder.licenseId],
+    references: [license.id],
+  }),
+  track: one(track, {
+    fields: [reminder.trackId],
+    references: [track.id],
+  }),
+  brand: one(brand, {
+    fields: [reminder.brandId],
+    references: [brand.id],
+  }),
+  demo: one(demo, {
+    fields: [reminder.demoId],
     references: [demo.id],
   }),
 }));

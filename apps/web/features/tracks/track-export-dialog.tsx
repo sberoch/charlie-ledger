@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
+import type { TrackStatus } from "@workspace/shared"
 import { downloadFile } from "@/lib/api"
 
 // Radix Select can't carry an empty value, so "All Tags" rides a sentinel.
@@ -28,10 +29,14 @@ export function TrackExportDialog({
   tags,
   currentTag,
   search,
+  status,
 }: {
   tags: string[]
   currentTag: string | null
   search: string
+  /** The list's active status lens — null = All. The export mirrors it so the
+   *  file equals the on-screen view (CONTEXT.md: "Track export"). */
+  status: TrackStatus | null
 }) {
   const [open, setOpen] = useState(false)
   const [tag, setTag] = useState(currentTag ?? ALL)
@@ -48,6 +53,7 @@ export function TrackExportDialog({
   const exportAs = (ext: "csv" | "pdf") => {
     const params = new URLSearchParams()
     if (tag !== ALL) params.set("tag", tag)
+    if (status) params.set("status", status)
     if (search) params.set("search", search)
     if (history) params.set("history", "true")
     if (financials) params.set("financials", "true")

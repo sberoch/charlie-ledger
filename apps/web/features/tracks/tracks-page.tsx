@@ -1,25 +1,36 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { formatMoney } from "@workspace/shared"
+import { formatMoney, type TrackStatus } from "@workspace/shared"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Skeleton } from "@workspace/ui/components/skeleton"
+import { cn } from "@workspace/ui/lib/utils"
 import { FilterChips } from "@/components/filter-chips"
 import { PageHeader } from "@/components/shell/page-header"
 import { formatDate } from "@/lib/format"
 import { useTracks, useTrackTags } from "./hooks"
 import { TrackExportDialog } from "./track-export-dialog"
 
+const STATUS_OPTIONS: Array<{ value: TrackStatus; label: string }> = [
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+]
+
 export function TracksPage() {
   const router = useRouter()
   const [tag, setTag] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  // Default to the working catalog; `null` is the "All" lens. See ADR-0006.
+  const [status, setStatus] = useState<TrackStatus | null>("active")
   const { data: tags = [] } = useTrackTags()
   const { data: tracks, isPending } = useTracks({
     tag: tag ?? undefined,
     search: search || undefined,
+    status: status ?? undefined,
   })
 
   return (
@@ -28,7 +39,15 @@ export function TracksPage() {
         title="Tracks"
         subtitle={tracks ? `${tracks.length} tracks in library` : "Loading…"}
       >
-        <TrackExportDialog tags={tags} currentTag={tag} search={search} />
+        <TrackExportDialog
+          tags={tags}
+          currentTag={tag}
+          search={search}
+          status={status}
+        />
+        <Button asChild>
+          <Link href="/tracks/new">+ New Track</Link>
+        </Button>
       </PageHeader>
 
       <div className="mb-5 flex flex-col gap-3 border bg-card p-3.5 md:flex-row md:items-center md:gap-4">
@@ -38,6 +57,13 @@ export function TracksPage() {
           value={tag}
           onChange={setTag}
           allLabel="All Tags"
+        />
+        <FilterChips
+          label="Status"
+          options={STATUS_OPTIONS}
+          value={status}
+          onChange={setStatus}
+          allLabel="All"
         />
         <Input
           placeholder="Search tracks…"
@@ -62,7 +88,10 @@ export function TracksPage() {
                 <button
                   type="button"
                   onClick={() => router.push(`/tracks/${track.id}`)}
-                  className="flex w-full cursor-pointer items-center gap-3 border-b border-border-soft py-3.5 text-left"
+                  className={cn(
+                    "flex w-full cursor-pointer items-center gap-3 border-b border-border-soft py-3.5 text-left",
+                    track.status === "archived" && "text-muted-foreground"
+                  )}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">
@@ -103,7 +132,10 @@ export function TracksPage() {
                 <tr
                   key={track.id}
                   onClick={() => router.push(`/tracks/${track.id}`)}
-                  className="cursor-pointer border-b border-border-soft transition-colors hover:bg-black/[0.025]"
+                  className={cn(
+                    "cursor-pointer border-b border-border-soft transition-colors hover:bg-black/[0.025]",
+                    track.status === "archived" && "text-muted-foreground"
+                  )}
                 >
                   <td className="px-3.5 py-4 font-semibold">
                     {track.name}

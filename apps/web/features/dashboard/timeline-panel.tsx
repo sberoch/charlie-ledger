@@ -16,6 +16,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { Panel, PanelLink } from "@/components/panel"
 import { formatDate } from "@/lib/format"
+import { useMarkReminderDone } from "./hooks"
 
 const RUST = "#8b3a2a"
 const OCHRE = "#b8843a"
@@ -23,10 +24,15 @@ const INK = "#1a1a1a"
 
 function dotColor(item: TimelineItemDto): string {
   if (item.kind === "demo_hold_lift") return INK
+  // Reminders share the risk palette with expirations (overdue/<14d = rust);
+  // their square marker keeps them visually distinct from license circles.
   return item.daysOut < 14 ? RUST : OCHRE
 }
 
-function itemHref(item: TimelineItemDto): string {
+/** Reminders have no detail page — their sourceId is the reminder's own id, and
+ *  the only action is "mark done", so they are never linked. */
+function itemHref(item: TimelineItemDto): string | null {
+  if (item.kind === "reminder") return null
   return item.kind === "demo_hold_lift"
     ? `/demos/${item.sourceId}`
     : `/licenses/${item.sourceId}`
@@ -37,6 +43,7 @@ function itemKey(item: TimelineItemDto): string {
 }
 
 function kindLabel(item: TimelineItemDto): string {
+  if (item.kind === "reminder") return "Reminder"
   return item.kind === "demo_hold_lift" ? "Hold lifts" : "Expiration"
 }
 
@@ -44,21 +51,56 @@ function openLabel(item: TimelineItemDto): string {
   return item.kind === "demo_hold_lift" ? "Open demo →" : "Open license →"
 }
 
+/** "4d" / "3d overdue" — reminders can run negative; derived items never do. */
+function dayLabel(item: TimelineItemDto): string {
+  return item.daysOut < 0 ? `${-item.daysOut}d overdue` : `${item.daysOut}d`
+}
+
 function Marker({ item }: { item: TimelineItemDto }) {
+  if (item.kind === "demo_hold_lift")
+    return (
+      <span className="size-[7px] shrink-0 rotate-45 border border-foreground bg-background" />
+    )
+  if (item.kind === "reminder")
+    return (
+      <span
+        className="size-[7px] shrink-0 border"
+        style={{ borderColor: dotColor(item), background: dotColor(item) }}
+      />
+    )
   return (
     <span
-      className={cn(
-        "size-[7px] shrink-0",
-        item.kind === "demo_hold_lift"
-          ? "rotate-45 border border-foreground bg-background"
-          : "rounded-full"
-      )}
-      style={
-        item.kind === "demo_hold_lift"
-          ? undefined
-          : { background: dotColor(item) }
-      }
+      className="size-[7px] shrink-0 rounded-full"
+      style={{ background: dotColor(item) }}
     />
+  )
+}
+
+/** The done button shared by the reminder row and its popover detail. */
+function ReminderDoneButton({
+  id,
+  className,
+}: {
+  id: string
+  className?: string
+}) {
+  const markDone = useMarkReminderDone()
+  return (
+    <button
+      type="button"
+      disabled={markDone.isPending}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        markDone.mutate(id)
+      }}
+      className={cn(
+        "rounded border border-border px-2 py-1 text-[11px] font-semibold tracking-[0.04em] uppercase hover:bg-black/[0.04] disabled:opacity-50",
+        className
+      )}
+    >
+      {markDone.isPending ? "..." : "Done"}
+    </button>
   )
 }
 
@@ -75,26 +117,36 @@ function clusterByProximity(items: TimelineItemDto[]): TimelineItemDto[][] {
 }
 
 function ItemDetail({ item }: { item: TimelineItemDto }) {
+  const href = itemHref(item)
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-start justify-between gap-3">
         <span className="text-sm font-semibold">{item.title}</span>
-        <span className="text-sm font-semibold tabular-nums">
-          {formatMoney(item.fee)}
-        </span>
+        {item.fee !== null ? (
+          <span className="text-sm font-semibold tabular-nums">
+            {formatMoney(item.fee)}
+          </span>
+        ) : null}
       </div>
       <div className="text-[11px] tracking-[0.05em] text-muted-foreground uppercase">
         {item.meta}
       </div>
       <div className="text-xs text-muted-foreground">
-        {kindLabel(item)} · {formatDate(item.date)} · in {item.daysOut} days
+        {kindLabel(item)} · {formatDate(item.date)} ·{" "}
+        {item.daysOut < 0
+          ? `${-item.daysOut} days overdue`
+          : `in ${item.daysOut} days`}
       </div>
-      <Link
-        href={itemHref(item)}
-        className="mt-1 text-xs font-semibold underline decoration-border underline-offset-3 hover:decoration-foreground"
-      >
-        {openLabel(item)}
-      </Link>
+      {href ? (
+        <Link
+          href={href}
+          className="mt-1 text-xs font-semibold underline decoration-border underline-offset-3 hover:decoration-foreground"
+        >
+          {openLabel(item)}
+        </Link>
+      ) : (
+        <ReminderDoneButton id={item.sourceId} className="mt-1 self-start" />
+      )}
     </div>
   )
 }
@@ -104,12 +156,14 @@ function AxisDot({ cluster }: { cluster: TimelineItemDto[] }) {
   const first = cluster[0]
   const last = cluster[cluster.length - 1]
   if (!first || !last) return null
-  const pct = (Math.min(first.daysOut, 60) / 60) * 100
-  const worst = cluster.some(
-    (i) => i.kind === "license_expiration" && i.daysOut < 14
-  )
+  // Clamp to [0,60]: overdue reminders (negative daysOut) pin to TODAY rather
+  // than sliding off the left edge.
+  const pct = (Math.max(0, Math.min(first.daysOut, 60)) / 60) * 100
+  // Expirations and reminders share the risk palette; demo holds stay ink.
+  const risky = (i: TimelineItemDto) => i.kind !== "demo_hold_lift"
+  const worst = cluster.some((i) => risky(i) && i.daysOut < 14)
     ? RUST
-    : cluster.some((i) => i.kind === "license_expiration")
+    : cluster.some(risky)
       ? OCHRE
       : INK
 
@@ -123,6 +177,11 @@ function AxisDot({ cluster }: { cluster: TimelineItemDto[] }) {
       >
         {first.kind === "demo_hold_lift" ? (
           <span className="size-[9px] rotate-45 border-[1.5px] border-foreground bg-background" />
+        ) : first.kind === "reminder" ? (
+          <span
+            className="size-[10px]"
+            style={{ background: dotColor(first) }}
+          />
         ) : (
           <span
             className="size-[11px] rounded-full"
@@ -149,7 +208,9 @@ function AxisDot({ cluster }: { cluster: TimelineItemDto[] }) {
         </TooltipTrigger>
         <TooltipContent sideOffset={6}>
           {cluster.length === 1
-            ? `${first.title} · ${first.daysOut}d · ${formatMoney(first.fee)}`
+            ? `${first.title} · ${dayLabel(first)}${
+                first.fee !== null ? ` · ${formatMoney(first.fee)}` : ""
+              }`
             : `${cluster.length} items · day ${first.daysOut}–${last.daysOut}`}
         </TooltipContent>
       </Tooltip>
@@ -158,26 +219,44 @@ function AxisDot({ cluster }: { cluster: TimelineItemDto[] }) {
           <ItemDetail item={first} />
         ) : (
           <div className="flex flex-col">
-            {cluster.map((item) => (
-              <Link
-                key={itemKey(item)}
-                href={itemHref(item)}
-                className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 border-b border-border-soft py-2 first:pt-0.5 last:border-0 last:pb-0.5 hover:bg-black/[0.02]"
-              >
-                <Marker item={item} />
-                <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-semibold">
-                    {item.title}
+            {cluster.map((item) => {
+              const href = itemHref(item)
+              const rowClass =
+                "grid grid-cols-[auto_1fr_auto] items-center gap-2.5 border-b border-border-soft py-2 first:pt-0.5 last:border-0 last:pb-0.5"
+              const inner = (
+                <>
+                  <Marker item={item} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-semibold">
+                      {item.title}
+                    </span>
+                    <span className="block text-[10.5px] tracking-[0.04em] text-muted-foreground uppercase">
+                      {dayLabel(item)} · {item.meta}
+                    </span>
                   </span>
-                  <span className="block text-[10.5px] tracking-[0.04em] text-muted-foreground uppercase">
-                    {item.daysOut}d · {item.meta}
-                  </span>
-                </span>
-                <span className="text-xs font-semibold tabular-nums">
-                  {formatMoney(item.fee)}
-                </span>
-              </Link>
-            ))}
+                  {item.fee !== null ? (
+                    <span className="text-xs font-semibold tabular-nums">
+                      {formatMoney(item.fee)}
+                    </span>
+                  ) : (
+                    <ReminderDoneButton id={item.sourceId} />
+                  )}
+                </>
+              )
+              return href ? (
+                <Link
+                  key={itemKey(item)}
+                  href={href}
+                  className={cn(rowClass, "hover:bg-black/[0.02]")}
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={itemKey(item)} className={rowClass}>
+                  {inner}
+                </div>
+              )
+            })}
           </div>
         )}
       </PopoverContent>
@@ -235,6 +314,9 @@ function TimelineAxis({
           <span className="size-2 rotate-45 border border-foreground bg-background" />{" "}
           Hold lifts
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 bg-rust" /> Reminder
+        </span>
       </div>
     </div>
   )
@@ -255,17 +337,16 @@ function TimelineRow({
         : item.daysOut <= 60
           ? "text-ochre font-semibold"
           : "text-muted-foreground"
-  return (
-    <Link
-      href={itemHref(item)}
-      className={cn(
-        "grid grid-cols-[64px_1fr_auto] items-center gap-3 border-b border-border-soft py-3 last:border-0 hover:bg-black/[0.02] md:gap-4",
-        secondary && "py-2.5"
-      )}
-    >
+  const href = itemHref(item)
+  const rowClass = cn(
+    "grid grid-cols-[64px_1fr_auto] items-center gap-3 border-b border-border-soft py-3 last:border-0 md:gap-4",
+    secondary && "py-2.5"
+  )
+  const inner = (
+    <>
       <span className={cn("flex items-center gap-2 text-[13px]", markerClass)}>
         <Marker item={item} />
-        {item.daysOut}d
+        {dayLabel(item)}
       </span>
       <span className="min-w-0">
         <span
@@ -280,15 +361,26 @@ function TimelineRow({
           {item.meta}
         </span>
       </span>
-      <span
-        className={cn(
-          "text-[13.5px] font-semibold tabular-nums",
-          secondary && "font-medium text-ink-soft"
-        )}
-      >
-        {formatMoney(item.fee)}
-      </span>
+      {item.fee !== null ? (
+        <span
+          className={cn(
+            "text-[13.5px] font-semibold tabular-nums",
+            secondary && "font-medium text-ink-soft"
+          )}
+        >
+          {formatMoney(item.fee)}
+        </span>
+      ) : (
+        <ReminderDoneButton id={item.sourceId} />
+      )}
+    </>
+  )
+  return href ? (
+    <Link href={href} className={cn(rowClass, "hover:bg-black/[0.02]")}>
+      {inner}
     </Link>
+  ) : (
+    <div className={rowClass}>{inner}</div>
   )
 }
 

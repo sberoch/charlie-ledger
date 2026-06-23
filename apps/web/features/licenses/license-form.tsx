@@ -184,7 +184,7 @@ export function LicenseForm({
               form.setValue("trackId", item.id, { shouldValidate: true })
             }
             placeholder="Select track…"
-            emptyHint="Tracks mirror Disco — new ones arrive via sync."
+            emptyHint="No match — add it from the Tracks screen first."
           />
         </Field>
 

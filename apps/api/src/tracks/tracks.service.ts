@@ -1,13 +1,21 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   formatLicenseSpan,
+  type CreateTrackInput,
   type TrackDetailDto,
   type TrackLicenseHistoryItemDto,
   type TrackListItemDto,
   type TrackListQuery,
+  type TrackStatus,
+  type UpdateTrackInput,
 } from '@workspace/shared';
-import type { Db } from '../common/database/db';
+import type { Db, DbTransaction } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
 import {
   brand,
@@ -196,6 +204,140 @@ export class TracksService {
       .innerJoin(trackTag, eq(trackTag.tagId, tag.id))
       .orderBy(tag.name);
     return rows.map((r) => r.name);
+  }
+
+  /**
+   * Create a catalog Track. Name is case-insensitively unique (a clean 409
+   * beats the raw unique-index throw); tags are pick-or-created and synced.
+   * A new Track is always `active`. See CONTEXT.md / ADR-0006.
+   */
+  async create(
+    input: CreateTrackInput,
+    userId: string,
+  ): Promise<TrackDetailDto> {
+    await this.assertNameAvailable(input.name);
+    const id = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(track)
+        .values({ name: input.name })
+        .returning({ id: track.id });
+      await this.syncTags(tx, row.id, input.tags, userId);
+      return row.id;
+    });
+    return this.detail(id);
+  }
+
+  /** Update name and/or tags. Omitted `tags` leaves assignments untouched; an
+   *  empty array clears them. `status` is never touched here (see setStatus). */
+  async update(
+    id: string,
+    input: UpdateTrackInput,
+    userId: string,
+  ): Promise<TrackDetailDto> {
+    const existing = await this.db.query.track.findFirst({
+      where: eq(track.id, id),
+    });
+    if (!existing) throw new NotFoundException('Track not found');
+    if (input.name !== undefined && input.name !== existing.name)
+      await this.assertNameAvailable(input.name, id);
+
+    await this.db.transaction(async (tx) => {
+      if (input.name !== undefined)
+        await tx
+          .update(track)
+          .set({ name: input.name })
+          .where(eq(track.id, id));
+      if (input.tags !== undefined)
+        await this.syncTags(tx, id, input.tags, userId);
+    });
+    return this.detail(id);
+  }
+
+  /** Archive / unarchive — the only door to a Track's `status`. */
+  async setStatus(id: string, status: TrackStatus): Promise<TrackDetailDto> {
+    const [row] = await this.db
+      .update(track)
+      .set({ status })
+      .where(eq(track.id, id))
+      .returning({ id: track.id });
+    if (!row) throw new NotFoundException('Track not found');
+    return this.detail(id);
+  }
+
+  /**
+   * Hard delete — permitted only when the Track carries no Licenses (its
+   * financial history). A licensed Track must be archived instead (409). On a
+   * permitted delete, track_tag rows cascade and any demo.converted_track_id
+   * pointing here is nulled by the FK. See CONTEXT.md / ADR-0006.
+   */
+  async remove(id: string): Promise<{ id: string }> {
+    const existing = await this.db.query.track.findFirst({
+      where: eq(track.id, id),
+    });
+    if (!existing) throw new NotFoundException('Track not found');
+
+    const [{ count }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(license)
+      .where(eq(license.trackId, id));
+    if (count > 0)
+      throw new ConflictException(
+        `This track has ${count} license${count === 1 ? '' : 's'} and can't be deleted — archive it instead.`,
+      );
+
+    await this.db.delete(track).where(eq(track.id, id));
+    return { id };
+  }
+
+  /** Case-insensitive name guard, mirroring tags.rename's clean 409. */
+  private async assertNameAvailable(name: string, excludeId?: string) {
+    const clash = await this.db.query.track.findFirst({
+      where: excludeId
+        ? and(
+            sql`lower(${track.name}) = lower(${name})`,
+            ne(track.id, excludeId),
+          )
+        : sql`lower(${track.name}) = lower(${name})`,
+    });
+    if (clash)
+      throw new ConflictException(`A track named "${name}" already exists`);
+  }
+
+  /**
+   * Resolve a flat list of tag names to ids (case-insensitive pick-or-create,
+   * same rule as tags.create) and replace the Track's assignment set. Runs in
+   * the caller's transaction.
+   */
+  private async syncTags(
+    tx: DbTransaction,
+    trackId: string,
+    names: string[],
+    userId: string,
+  ): Promise<void> {
+    const tagIds: string[] = [];
+    for (const raw of names) {
+      const name = raw.trim();
+      if (!name) continue;
+      const existing = await tx.query.tag.findFirst({
+        where: sql`lower(${tag.name}) = lower(${name})`,
+      });
+      if (existing) {
+        tagIds.push(existing.id);
+        continue;
+      }
+      const [created] = await tx
+        .insert(tag)
+        .values({ name, createdBy: userId })
+        .returning({ id: tag.id });
+      tagIds.push(created.id);
+    }
+
+    await tx.delete(trackTag).where(eq(trackTag.trackId, trackId));
+    const unique = [...new Set(tagIds)];
+    if (unique.length > 0)
+      await tx
+        .insert(trackTag)
+        .values(unique.map((tagId) => ({ trackId, tagId })));
   }
 
   async detail(id: string): Promise<TrackDetailDto> {

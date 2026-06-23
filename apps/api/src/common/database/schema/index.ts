@@ -12,5 +12,6 @@ export * from './license';
 export * from './demo';
 export * from './invoice';
 export * from './lead';
+export * from './reminder';
 export * from './app-setting';
 export * from './relations';
