@@ -5,12 +5,14 @@ import { formatMoney } from "@workspace/shared"
 import { useDemos } from "@/features/demos/hooks"
 import { useLicenses } from "@/features/licenses/hooks"
 import { useBrands } from "@/features/parties/hooks"
+import { useTracks } from "@/features/tracks/hooks"
 import { EntityCombobox } from "@/features/parties/entity-combobox"
 
 export interface LeadLinkValue {
   brandId: string | null
   licenseId: string | null
   demoId: string | null
+  trackId: string | null
 }
 
 /** A labelled combobox + a clear button, shown once a value is picked. Links
@@ -66,9 +68,10 @@ export function LeadLinks({
   const { data: brands = [] } = useBrands()
   const { data: licenses = [] } = useLicenses()
   const { data: demos = [] } = useDemos()
+  const { data: tracks = [] } = useTracks()
 
   return (
-    <div className="mt-3 grid gap-3 border-t border-dashed pt-3 md:grid-cols-3">
+    <div className="mt-3 grid gap-3 border-t border-dashed pt-3 md:grid-cols-2">
       <LinkRow
         label="Brand"
         placeholder="Link a brand…"
@@ -101,6 +104,16 @@ export function LeadLinks({
         }))}
         value={value.demoId}
         onChange={(demoId) => onChange({ ...value, demoId })}
+      />
+      <LinkRow
+        label="Track"
+        placeholder="Link a track…"
+        items={tracks.map((t) => ({
+          id: t.id,
+          name: t.name,
+        }))}
+        value={value.trackId}
+        onChange={(trackId) => onChange({ ...value, trackId })}
       />
     </div>
   )

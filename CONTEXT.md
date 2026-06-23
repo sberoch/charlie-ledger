@@ -105,6 +105,17 @@ Display bands derived from a License's end date, never stored: **urgent** (fewer
 days left), **expiring soon** (14–60 days), **active** (more than 60 days), **expired**
 (past). A perpetual License is always active.
 
+**Sell signal** ("SELL THIS"):
+A derived inventory flag on a [[track]], never stored: it fires when the Track is **active**
+and its **reference date** is more than **three years** past. The reference date is the
+Track's **last licensed date** (its most recent [[license]] start date), falling back to the
+Track's **creation date** when it has never been licensed. It marks dead catalog inventory —
+a track that hasn't moved in years — nudging Charlie to sell it. Surfaced as a red ("rust")
+badge appended **after** the tag chips wherever a Track's tags show, but it is **not a [[tag]]**
+and has no relationship to the catalog tag vocabulary — it merely shares their visual slot.
+An archived Track never shows it.
+_Avoid_: Stale tag, sell tag (it is not a Tag), dead-stock flag.
+
 **Hold**:
 The wait on a Demo (none / 3mo / 6mo) before Charlie may reuse its idea as a library Track,
 counted from when the demo was written. When the hold **lifts** the Demo becomes eligible to

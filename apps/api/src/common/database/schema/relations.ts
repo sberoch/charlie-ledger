@@ -40,6 +40,8 @@ export const trackRelations = relations(track, ({ many }) => ({
   trackTags: many(trackTag),
   // Reminders optionally linked to this track (ADR-0007).
   reminders: many(reminder),
+  // Personal-ledger lines optionally attributed to this track (ADR-0005).
+  leads: many(lead),
 }));
 
 export const tagRelations = relations(tag, ({ many }) => ({
@@ -120,6 +122,10 @@ export const leadRelations = relations(lead, ({ one }) => ({
   demo: one(demo, {
     fields: [lead.demoId],
     references: [demo.id],
+  }),
+  track: one(track, {
+    fields: [lead.trackId],
+    references: [track.id],
   }),
 }));
 

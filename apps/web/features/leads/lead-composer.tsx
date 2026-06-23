@@ -26,6 +26,7 @@ function emptyDraft(date?: string): Draft {
     brandId: null,
     licenseId: null,
     demoId: null,
+    trackId: null,
   }
 }
 
@@ -37,6 +38,7 @@ function fromLead(lead: LeadDto): Draft {
     brandId: lead.brandId,
     licenseId: lead.licenseId,
     demoId: lead.demoId,
+    trackId: lead.trackId,
   }
 }
 
@@ -60,7 +62,7 @@ export function LeadComposer({
   )
   const [linksOpen, setLinksOpen] = useState(
     mode === "edit" && lead
-      ? Boolean(lead.brandId || lead.licenseId || lead.demoId)
+      ? Boolean(lead.brandId || lead.licenseId || lead.demoId || lead.trackId)
       : false
   )
   const descRef = useRef<HTMLInputElement>(null)
@@ -73,9 +75,12 @@ export function LeadComposer({
     Boolean(draft.date) &&
     draft.description.trim().length > 0 &&
     AMOUNT_RE.test(amount)
-  const linkCount = [draft.brandId, draft.licenseId, draft.demoId].filter(
-    Boolean
-  ).length
+  const linkCount = [
+    draft.brandId,
+    draft.licenseId,
+    draft.demoId,
+    draft.trackId,
+  ].filter(Boolean).length
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -87,6 +92,7 @@ export function LeadComposer({
       brandId: draft.brandId,
       licenseId: draft.licenseId,
       demoId: draft.demoId,
+      trackId: draft.trackId,
     }
 
     if (mode === "edit") {

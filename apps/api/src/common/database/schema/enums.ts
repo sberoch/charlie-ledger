@@ -39,3 +39,12 @@ export const holdPeriod = pgEnum('hold_period', [
   'three_months',
   'six_months',
 ]);
+
+// Which hardcoded rule created a Reminder (ADR-0007). Named `reminderKind`, not
+// `kind`, to avoid colliding with the dashboard timeline's own `kind`
+// discriminator. The only robust dedupe key for a reminder rule, since a single
+// license can carry reminders from more than one rule.
+export const reminderKind = pgEnum('reminder_kind', [
+  'broadcast_royalty',
+  'license_renewal',
+]);

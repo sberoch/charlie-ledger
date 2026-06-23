@@ -97,6 +97,16 @@ export class ReportPdfService {
       align: 'right',
     });
 
+    if (result.includeLeads) {
+      doc.font('Courier').fontSize(7).fillColor(MUTED);
+      doc.text(
+        `INCLUDES ${formatMoney(result.leadTotal)} FROM PERSONAL-LEDGER LEADS · MAY DOUBLE-COUNT INVOICED FEES`,
+        MARGIN,
+        y + 28,
+        { characterSpacing: 1 },
+      );
+    }
+
     doc.end();
     return doc;
   }

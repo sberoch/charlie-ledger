@@ -99,6 +99,11 @@ export function TracksPage() {
                     <span className="block truncate text-sm font-semibold">
                       {track.name}
                     </span>
+                    {track.sellRecommended ? (
+                      <Badge variant="urgent" className="mt-1">
+                        SELL THIS
+                      </Badge>
+                    ) : null}
                     <span className="mt-0.5 block truncate text-[11px] tracking-[0.04em] text-muted-foreground">
                       {track.licenseCount} licenses ·{" "}
                       {track.tags.slice(0, 3).join(", ")}
@@ -127,6 +132,9 @@ export function TracksPage() {
                 <th className="px-3.5 py-3.5 text-right font-medium">
                   Last Licensed
                 </th>
+                <th className="px-3.5 py-3.5 text-right font-medium">
+                  Created
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -154,6 +162,9 @@ export function TracksPage() {
                           {t}
                         </Badge>
                       ))}
+                      {track.sellRecommended ? (
+                        <Badge variant="urgent">SELL THIS</Badge>
+                      ) : null}
                     </span>
                   </td>
                   <td className="px-3.5 py-4 text-right tabular-nums">
@@ -166,6 +177,9 @@ export function TracksPage() {
                     {track.lastLicensedAt
                       ? formatDate(track.lastLicensedAt)
                       : "—"}
+                  </td>
+                  <td className="px-3.5 py-4 text-right text-muted-foreground tabular-nums">
+                    {formatDate(track.createdAt)}
                   </td>
                 </tr>
               ))}

@@ -11,6 +11,7 @@ import { user } from './auth';
 import { brand } from './brand';
 import { demo } from './demo';
 import { license } from './license';
+import { track } from './track';
 
 // A Lead — Charlie's house word for a freeform line in his personal ledger: a
 // (date, description, amount) row he adds by hand, optionally linked to a Brand,
@@ -38,6 +39,9 @@ export const lead = pgTable(
     demoId: uuid('demo_id').references(() => demo.id, {
       onDelete: 'set null',
     }),
+    trackId: uuid('track_id').references(() => track.id, {
+      onDelete: 'set null',
+    }),
     createdBy: text('created_by').references(() => user.id, {
       onDelete: 'set null',
     }),
@@ -53,5 +57,6 @@ export const lead = pgTable(
     index('lead_brand_idx').on(table.brandId),
     index('lead_license_idx').on(table.licenseId),
     index('lead_demo_idx').on(table.demoId),
+    index('lead_track_idx').on(table.trackId),
   ],
 );

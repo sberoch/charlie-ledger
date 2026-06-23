@@ -71,6 +71,20 @@
       "when": 1782219997058,
       "tag": "0009_gifted_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782238582657,
+      "tag": "0010_lush_vision",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782239102875,
+      "tag": "0011_motionless_veda",
+      "breakpoints": true
     }
   ]
 }

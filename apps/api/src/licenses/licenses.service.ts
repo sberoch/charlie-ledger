@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, arrayOverlaps, desc, eq } from 'drizzle-orm';
+import { and, arrayOverlaps, desc, eq, isNull } from 'drizzle-orm';
 import {
   EXCLUSIVITY_TIER_LABELS,
   EXCLUSIVITY_TIER_SHORT,
@@ -210,6 +210,7 @@ export class LicensesService {
       // invoice, create-time only, never re-run on edit.
       if (usageTypes.includes('broadcast')) {
         await tx.insert(reminder).values({
+          reminderKind: 'broadcast_royalty',
           title: `Register ${trackRow.name} × ${brandRow.name} for broadcast royalties`,
           description:
             'Broadcast usage. Register this license to pursue broadcast royalties.',
@@ -288,6 +289,21 @@ export class LicensesService {
       .update(license)
       .set({ renewedToId })
       .where(eq(license.id, id));
+    // Self-clean the renewal nudge: once a license points to its renewal, the
+    // "contact the brand to renew" reminder (license-renewal cron, ADR-0007) is
+    // moot, so mark any open one done. No-op when the pointer is cleared.
+    if (renewedToId) {
+      await this.db
+        .update(reminder)
+        .set({ completedAt: new Date() })
+        .where(
+          and(
+            eq(reminder.licenseId, id),
+            eq(reminder.reminderKind, 'license_renewal'),
+            isNull(reminder.completedAt),
+          ),
+        );
+    }
     return this.detail(id);
   }
 

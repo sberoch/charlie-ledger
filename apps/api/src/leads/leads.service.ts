@@ -12,7 +12,7 @@ import {
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
-import { brand, demo, lead, license } from '../common/database/schema';
+import { brand, demo, lead, license, track } from '../common/database/schema';
 
 // Linked entities are pulled only to render display labels — a Lead never reads
 // a fee or invoice off them (ADR-0005: walled off, no reconciliation).
@@ -20,6 +20,7 @@ const RELATIONS = {
   brand: true,
   license: { with: { track: true, brand: true } },
   demo: true,
+  track: true,
 } as const;
 
 type LeadRow = NonNullable<
@@ -28,6 +29,7 @@ type LeadRow = NonNullable<
   brand: { name: string } | null;
   license: { track: { name: string }; brand: { name: string } } | null;
   demo: { workingName: string } | null;
+  track: { name: string } | null;
 };
 
 @Injectable()
@@ -66,6 +68,7 @@ export class LeadsService {
         brandId: input.brandId ?? null,
         licenseId: input.licenseId ?? null,
         demoId: input.demoId ?? null,
+        trackId: input.trackId ?? null,
         createdBy: userId,
       })
       .returning({ id: lead.id });
@@ -96,6 +99,10 @@ export class LeadsService {
             : existing.licenseId,
         demoId:
           input.demoId !== undefined ? (input.demoId ?? null) : existing.demoId,
+        trackId:
+          input.trackId !== undefined
+            ? (input.trackId ?? null)
+            : existing.trackId,
       })
       .where(eq(lead.id, id));
     return this.detail(id);
@@ -117,6 +124,7 @@ export class LeadsService {
     brandId?: string | null;
     licenseId?: string | null;
     demoId?: string | null;
+    trackId?: string | null;
   }): Promise<void> {
     if (input.brandId) {
       const row = await this.db.query.brand.findFirst({
@@ -136,6 +144,12 @@ export class LeadsService {
       });
       if (!row) throw new BadRequestException('Demo not found');
     }
+    if (input.trackId) {
+      const row = await this.db.query.track.findFirst({
+        where: eq(track.id, input.trackId),
+      });
+      if (!row) throw new BadRequestException('Track not found');
+    }
   }
 
   private toDto(row: LeadRow): LeadDto {
@@ -152,6 +166,8 @@ export class LeadsService {
         : null,
       demoId: row.demoId,
       demoLabel: row.demo?.workingName ?? null,
+      trackId: row.trackId,
+      trackName: row.track?.name ?? null,
       createdAt: row.createdAt.toISOString(),
     };
   }

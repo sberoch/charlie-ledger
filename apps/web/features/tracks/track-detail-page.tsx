@@ -182,7 +182,13 @@ export function TrackDetailPage({ id }: { id: string }) {
                 {tag}
               </Badge>
             ))}
+            {track.sellRecommended ? (
+              <Badge variant="urgent">SELL THIS</Badge>
+            ) : null}
           </div>
+          <p className="mt-3 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+            Added {formatDate(track.createdAt)}
+          </p>
         </div>
         <div className="flex gap-8 md:text-right">
           <div>

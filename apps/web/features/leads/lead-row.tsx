@@ -30,9 +30,12 @@ function dayLabel(isoDate: string): string {
 }
 
 function LinkBadges({ lead }: { lead: LeadDto }) {
-  const links = [lead.brandName, lead.licenseLabel, lead.demoLabel].filter(
-    Boolean
-  ) as string[]
+  const links = [
+    lead.brandName,
+    lead.licenseLabel,
+    lead.demoLabel,
+    lead.trackName,
+  ].filter(Boolean) as string[]
   if (links.length === 0) return null
   return (
     <span className="mt-1 flex flex-wrap gap-1">

@@ -9,6 +9,7 @@ import {
 import { user } from './auth';
 import { brand } from './brand';
 import { demo } from './demo';
+import { reminderKind } from './enums';
 import { license } from './license';
 import { track } from './track';
 
@@ -31,6 +32,9 @@ export const reminder = pgTable(
   'reminder',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // Which rule created this reminder — the dedupe key (a license can carry one
+    // reminder per kind). See the `reminderKind` enum and ADR-0007.
+    reminderKind: reminderKind('reminder_kind').notNull(),
     // Snapshotted display text — composed by the rule that creates the reminder.
     title: text('title').notNull(),
     description: text('description').notNull(),
@@ -67,6 +71,9 @@ export const reminder = pgTable(
     index('reminder_due_on_idx').on(table.dueOn),
     index('reminder_completed_at_idx').on(table.completedAt),
     index('reminder_license_idx').on(table.licenseId),
+    // Dedupe key for rule-based creation: "does license X already have a
+    // reminder of kind K?" (the license-renewal cron, ADR-0007).
+    index('reminder_license_kind_idx').on(table.licenseId, table.reminderKind),
     index('reminder_track_idx').on(table.trackId),
     index('reminder_brand_idx').on(table.brandId),
     index('reminder_demo_idx').on(table.demoId),

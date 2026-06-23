@@ -20,7 +20,9 @@ import {
   invoice,
   license,
   payer,
+  tag,
   track,
+  trackTag,
 } from '../schema';
 import { seedTracks } from './seed-tracks';
 
@@ -522,6 +524,85 @@ async function seedDemoData() {
 
   console.log(
     `✓ seeded ${LICENSES.length} licenses + ${DEMOS.length} demos, all born-invoiced`,
+  );
+
+  // ── "SELL THIS" sell-signal fixtures ───────────────────────────────────
+  // Dead-inventory cases the signal must flag (CONTEXT.md: "Sell signal"),
+  // kept out of the curated prototype story above. Both paths into the signal
+  // plus a negative control, so the catalog shows the badge firing and silent.
+  const tagIdByName = new Map(
+    (await db.select({ id: tag.id, name: tag.name }).from(tag)).map((r) => [
+      r.name,
+      r.id,
+    ]),
+  );
+  const insertSellTrack = async (
+    name: string,
+    tags: string[],
+    createdAgoDays: number,
+  ): Promise<string> => {
+    const [row] = await db
+      .insert(track)
+      .values({
+        name,
+        createdAt: new Date(`${addDays(today, -createdAgoDays)}T12:00:00Z`),
+      })
+      .returning({ id: track.id });
+    if (tags.length > 0)
+      await db.insert(trackTag).values(
+        tags.map((n) => {
+          const tagId = tagIdByName.get(n);
+          if (!tagId) throw new Error(`Seed tag missing from vocabulary: ${n}`);
+          return { trackId: row.id, tagId };
+        }),
+      );
+    return row.id;
+  };
+
+  // 1) Stale by last-licensed date — its one license started ~4 years ago, so
+  //    max(start) is over three years past → SELL THIS via lastLicensedAt.
+  const dustlineId = await insertSellTrack(
+    'Dustline',
+    ['ambient', 'slow'],
+    365 * 5,
+  );
+  const dustStart = addDays(today, -365 * 4);
+  const dustline = await licenses.create(
+    {
+      trackId: dustlineId,
+      brandId: await findOrCreateBrand('Chevrolet', 'Automotive'),
+      payerId: await findOrCreatePayer('Chevrolet'),
+      usageTypes: ['broadcast', 'social_media'],
+      exclusivityTier: 'category_exclusive',
+      termLength: 'one_year',
+      fee: (12000).toFixed(2),
+      startDate: dustStart,
+      endDate: addMonths(dustStart, TERM_MONTHS.one_year),
+    },
+    null,
+  );
+  await db
+    .update(license)
+    .set({ createdAt: new Date(`${dustStart}T12:00:00Z`) })
+    .where(eq(license.id, dustline.id));
+  await db
+    .update(invoice)
+    .set({
+      issueDate: dustStart,
+      dueDate: addDays(dustStart, 30),
+      paidDate: addDays(dustStart, 18),
+    })
+    .where(eq(invoice.id, dustline.invoice.id));
+
+  // 2) Never licensed but old — createdAt is the fallback reference date and
+  //    it is over three years past → SELL THIS via the createdAt fallback.
+  await insertSellTrack('Forgotten Embers', ['cinematic', 'melancholic'], 365 * 4);
+
+  // 3) Negative control — never licensed AND recently created → no badge.
+  await insertSellTrack('Fresh Pressing', ['indie', 'warm'], 30);
+
+  console.log(
+    '✓ seeded 3 sell-signal fixtures (Dustline, Forgotten Embers — flagged; Fresh Pressing — control)',
   );
 }
 

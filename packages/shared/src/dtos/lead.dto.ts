@@ -7,7 +7,7 @@ import {
 
 // Lead — a freeform line in Charlie's personal ledger (ADR-0005). A
 // (date, description, amount) row with optional, independent links to a Brand,
-// License, and/or Demo. Walled off: never reconciled, never feeds rollups.
+// License, Demo, and/or Track. Walled off: never reconciled, never feeds rollups.
 // Amount is signed. Not a sales prospect — see CONTEXT.md.
 
 export const LeadSchema = z.object({
@@ -23,6 +23,9 @@ export const LeadSchema = z.object({
   demoId: UuidSchema.nullable(),
   /** Working name of the linked Demo, for display. */
   demoLabel: z.string().nullable(),
+  trackId: UuidSchema.nullable(),
+  /** Name of the linked Track, for display. */
+  trackName: z.string().nullable(),
   createdAt: z.string(),
 })
 export type LeadDto = z.infer<typeof LeadSchema>
@@ -35,6 +38,7 @@ export const CreateLeadSchema = z.object({
   brandId: UuidSchema.nullish(),
   licenseId: UuidSchema.nullish(),
   demoId: UuidSchema.nullish(),
+  trackId: UuidSchema.nullish(),
 })
 export type CreateLeadInput = z.infer<typeof CreateLeadSchema>
 

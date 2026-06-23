@@ -12,6 +12,7 @@ import {
   type ReportGroupBy,
 } from "@workspace/shared"
 import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Input } from "@workspace/ui/components/input"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { SegControl } from "@/components/seg-control"
@@ -22,8 +23,9 @@ export function ReportsPage() {
   const [from, setFrom] = useState(addMonths(todayIso(), -12))
   const [to, setTo] = useState(todayIso())
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("brand")
+  const [includeLeads, setIncludeLeads] = useState(false)
 
-  const query = { from, to, groupBy }
+  const query = { from, to, groupBy, includeLeads }
   const enabled = Boolean(from && to)
   const { data: report, isPending } = useQuery({
     queryKey: ["reports", query],
@@ -33,7 +35,7 @@ export function ReportsPage() {
 
   const exportAs = (ext: "csv" | "pdf") =>
     downloadFile(
-      `/reports/sales.${ext}?from=${from}&to=${to}&groupBy=${groupBy}`,
+      `/reports/sales.${ext}?from=${from}&to=${to}&groupBy=${groupBy}&includeLeads=${includeLeads}`,
       `sales_${from}_${to}_by_${groupBy}.${ext}`
     ).catch((e) => toast.error(e.message))
 
@@ -78,6 +80,14 @@ export function ReportsPage() {
             onChange={setGroupBy}
           />
         </div>
+        <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+          <Checkbox
+            checked={includeLeads}
+            onCheckedChange={(v) => setIncludeLeads(v === true)}
+            className="mt-0.5"
+          />
+          <span className="text-sm">Include leads</span>
+        </label>
       </div>
 
       {isPending ? (
@@ -142,6 +152,14 @@ export function ReportsPage() {
               A license can grant several media, so each fee counts toward every
               usage row. The rows will overlap and sum to more than the grand
               total.
+            </p>
+          ) : null}
+
+          {report.includeLeads ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Totals include {formatMoney(report.leadTotal)} from
+              personal-ledger leads (blended into the rows above). Leads are
+              commitment-basis and may double-count invoiced fees.
             </p>
           ) : null}
 

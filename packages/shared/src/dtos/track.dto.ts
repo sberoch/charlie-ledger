@@ -27,6 +27,12 @@ export const TrackListItemSchema = z.object({
   /** Lifetime sales — Σ License fees, commitment basis. */
   lifetimeSales: MoneySchema,
   lastLicensedAt: IsoDateSchema.nullable(),
+  /** When the track was added to the catalog (date only). */
+  createdAt: IsoDateSchema,
+  /** "SELL THIS" — derived dead-inventory signal. True for an active track whose
+   *  last licensed date (or creation date, if never licensed) is over three years
+   *  past. Never stored; computed server-side. See CONTEXT.md "Sell signal". */
+  sellRecommended: z.boolean(),
   /** Full license history (chronological, no fees). Present only on exports
    *  that opt into `history`; undefined everywhere else. */
   licenses: z.array(TrackLicenseHistoryItemSchema).optional(),

@@ -26,6 +26,7 @@ import {
   track,
   trackTag,
 } from '../common/database/schema';
+import { isSellRecommended } from './sell-recommended';
 
 // Track — catalog read models (list/detail) plus the in-use tag chips. Tags
 // are sourced from the track_tag join; the `tags: string[]` DTO contract is
@@ -61,13 +62,24 @@ export class TracksService {
         licenseCount: sql<number>`count(${license.id})::int`,
         lifetimeSales: sql<string>`coalesce(sum(${license.fee}), 0)::text`,
         lastLicensedAt: sql<string | null>`max(${license.startDate})`,
+        // Internal — the "Sell signal" fallback reference date. Stripped below.
+        createdAt: track.createdAt,
       })
       .from(track)
       .leftJoin(license, eq(license.trackId, track.id))
       .where(sql.join(conditions, sql` AND `))
       .groupBy(track.id)
       .orderBy(sql`coalesce(sum(${license.fee}), 0) DESC`, track.name);
-    return rows;
+
+    const now = new Date();
+    return rows.map(({ createdAt, ...row }) => ({
+      ...row,
+      createdAt: createdAt.toISOString().slice(0, 10),
+      sellRecommended: isSellRecommended(
+        { status: row.status, lastLicensedAt: row.lastLicensedAt, createdAt },
+        now,
+      ),
+    }));
   }
 
   /**
@@ -402,6 +414,15 @@ export class TracksService {
       licenseCount: rollup?.licenseCount ?? 0,
       lifetimeSales: rollup?.lifetimeSales ?? '0',
       lastLicensedAt: rollup?.lastLicensedAt ?? null,
+      createdAt: row.createdAt.toISOString().slice(0, 10),
+      sellRecommended: isSellRecommended(
+        {
+          status: row.status,
+          lastLicensedAt: rollup?.lastLicensedAt ?? null,
+          createdAt: row.createdAt,
+        },
+        new Date(),
+      ),
       categoryPerformance,
       quarterlySales,
       convertedDemos,

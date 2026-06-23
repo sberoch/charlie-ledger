@@ -46,15 +46,27 @@ export async function seedTracks() {
   const tagIdByName = new Map(tagRows.map((r) => [r.name, r.id]));
 
   for (const t of TRACKS) {
-    // Upsert by name (the natural key); keep it active on re-seed.
-    const [row] = await db
+    // Upsert by name (the natural key). The unique index is on lower(name), an
+    // expression index a conflict target can't be passed to directly (same as
+    // tag_name_uq) — so insert with bare DO NOTHING, then resolve + reactivate
+    // the existing row on conflict.
+    const [inserted] = await db
       .insert(track)
       .values({ name: t.name })
-      .onConflictDoUpdate({
-        target: track.name,
-        set: { status: 'active' },
-      })
+      .onConflictDoNothing()
       .returning({ id: track.id });
+    let row = inserted;
+    if (!row) {
+      const existing = await db.query.track.findFirst({
+        where: sql`lower(${track.name}) = lower(${t.name})`,
+      });
+      if (!existing) throw new Error(`Seed track upsert failed: ${t.name}`);
+      await db
+        .update(track)
+        .set({ status: 'active' })
+        .where(eq(track.id, existing.id));
+      row = { id: existing.id };
+    }
 
     // Reconcile assignments: clear then re-insert this track's tags.
     await db.delete(trackTag).where(eq(trackTag.trackId, row.id));
