@@ -50,13 +50,14 @@ export function TracksPage() {
         </Button>
       </PageHeader>
 
-      <div className="mb-5 flex flex-col gap-3 border bg-card p-3.5 md:flex-row md:items-center md:gap-4">
+      <div className="mb-5 flex flex-col gap-3 border bg-card p-3.5 lg:flex-row lg:items-center lg:gap-5">
         <FilterChips
           label="Tag"
           options={tags.map((t) => ({ value: t, label: t }))}
           value={tag}
           onChange={setTag}
           allLabel="All Tags"
+          variant="select"
         />
         <FilterChips
           label="Status"
@@ -64,12 +65,13 @@ export function TracksPage() {
           value={status}
           onChange={setStatus}
           allLabel="All"
+          variant="select"
         />
         <Input
           placeholder="Search tracks…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="md:ml-auto md:max-w-56"
+          className="lg:ml-auto lg:max-w-56"
         />
       </div>
 

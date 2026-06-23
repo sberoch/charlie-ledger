@@ -75,7 +75,7 @@ export function TrackForm({
   const pending = createTrack.isPending || updateTrack.isPending
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-xl">
+    <form onSubmit={onSubmit} className="mx-auto">
       <Field label="Name">
         <Input
           autoFocus
@@ -93,7 +93,9 @@ export function TrackForm({
       >
         <TagMultiSelect
           value={values.tags ?? []}
-          onChange={(tags) => form.setValue("tags", tags, { shouldValidate: true })}
+          onChange={(tags) =>
+            form.setValue("tags", tags, { shouldValidate: true })
+          }
         />
       </Field>
 
