@@ -3,9 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import {
+  ImportTracksResultSchema,
   TrackDetailSchema,
   TrackListItemSchema,
   type CreateTrackInput,
+  type ImportTracksInput,
   type TrackDetailDto,
   type TrackListQuery,
   type TrackStatus,
@@ -56,6 +58,21 @@ export function useCreateTrack() {
         method: "POST",
         body: input,
         schema: TrackDetailSchema,
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+// Bulk import from a parsed Disco CSV. Same catalog invalidation as a single
+// create — the new tracks ripple into the list, in-use tag chips, and dashboard.
+export function useImportTracks() {
+  const invalidate = useInvalidateCatalog()
+  return useMutation({
+    mutationFn: (input: ImportTracksInput) =>
+      api("/tracks/import", {
+        method: "POST",
+        body: input,
+        schema: ImportTracksResultSchema,
       }),
     onSuccess: invalidate,
   })

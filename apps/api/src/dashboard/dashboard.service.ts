@@ -172,31 +172,38 @@ export class DashboardService {
       }))
       .sort((a, b) => b.share - a.share);
 
-    // ── Tag trend: (tag combination × brand) → Σ fees, ranked ──
-    type Combo = {
-      tags: string[];
+    // ── Tag trend: per individual tag → Σ fees, ranked. A license fee counts
+    // toward EACH of its track's tags, so the rows overlap and over-sum the
+    // grand total BY DESIGN — same as the Report's Usage Type rows. With tracks
+    // carrying many tags, the individual tag (not the combination) is the
+    // meaningful unit of "what styles sell". See CONTEXT.md "Tag trend".
+    type TagRollup = {
+      tag: string;
       fees: number[];
       brands: Map<string, number>;
     };
-    const byCombo = new Map<string, Combo>();
+    const byTag = new Map<string, TagRollup>();
     for (const l of licenses) {
-      const tags = l.track.trackTags.map((tt) => tt.tag.name).sort();
-      const key = tags.join('|');
-      const entry: Combo = byCombo.get(key) ?? {
-        tags,
-        fees: [],
-        brands: new Map(),
-      };
-      entry.fees.push(Number(l.fee));
-      entry.brands.set(
-        l.brand.name,
-        (entry.brands.get(l.brand.name) ?? 0) + Number(l.fee),
-      );
-      byCombo.set(key, entry);
+      const fee = Number(l.fee);
+      // De-dupe within a track so one license can't double-count the same tag.
+      const tagNames = [...new Set(l.track.trackTags.map((tt) => tt.tag.name))];
+      for (const tagName of tagNames) {
+        const entry: TagRollup = byTag.get(tagName) ?? {
+          tag: tagName,
+          fees: [],
+          brands: new Map(),
+        };
+        entry.fees.push(fee);
+        entry.brands.set(
+          l.brand.name,
+          (entry.brands.get(l.brand.name) ?? 0) + fee,
+        );
+        byTag.set(tagName, entry);
+      }
     }
-    const tagTrend: TagTrendRowDto[] = [...byCombo.values()]
+    const tagTrend: TagTrendRowDto[] = [...byTag.values()]
       .map((c) => ({
-        tags: c.tags,
+        tag: c.tag,
         total: c.fees.reduce((a, b) => a + b, 0).toFixed(2),
         licenseCount: c.fees.length,
         brands: [...c.brands.entries()]

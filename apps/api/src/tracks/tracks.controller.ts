@@ -13,11 +13,13 @@ import type { Response } from 'express';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import {
   CreateTrackSchema,
+  ImportTracksSchema,
   TrackExportQuerySchema,
   TrackListQuerySchema,
   UpdateTrackSchema,
   UpdateTrackStatusSchema,
   type CreateTrackInput,
+  type ImportTracksInput,
   type TrackExportQuery,
   type TrackListQuery,
   type UpdateTrackInput,
@@ -114,6 +116,14 @@ export class TracksController {
     @Session() session: UserSession,
   ) {
     return this.tracks.create(body, session.user.id);
+  }
+
+  // Bulk import from a Disco CSV export — best-effort, dedupes against the
+  // case-insensitive natural key and within the batch. Distinct POST path, so
+  // no collision with the `:id` route. See CONTEXT.md "Track import".
+  @Post('import')
+  importTracks(@Body(zodPipe(ImportTracksSchema)) body: ImportTracksInput) {
+    return this.tracks.importTracks(body);
   }
 
   @Patch(':id')

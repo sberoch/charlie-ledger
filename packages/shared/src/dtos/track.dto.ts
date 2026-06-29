@@ -69,6 +69,34 @@ export const UpdateTrackStatusSchema = z.object({
 })
 export type UpdateTrackStatusInput = z.infer<typeof UpdateTrackStatusSchema>
 
+// Track import — bulk-add from a Disco CSV export, parsed in the browser and
+// POSTed as track DTOs (CONTEXT.md "Track import"). Deliberately a RELAXED clone
+// of CreateTrackSchema: `name` keeps the trim + min(1) guard but drops the
+// 120-char cap, trusting the source export (the `name` column is unbounded
+// `text`). `tags` carries the candidate words the browser pulled from the
+// track's COMMENTS column — the server keeps only those matching the curated
+// mood vocabulary (allow-list match, never pick-or-create). Dedupe + best-effort
+// skipping happen server-side against the case-insensitive natural key.
+export const ImportTrackSchema = z.object({
+  name: z.string().trim().min(1),
+  tags: z.array(z.string().trim().min(1)),
+})
+export type ImportTrackInput = z.infer<typeof ImportTrackSchema>
+
+export const ImportTracksSchema = z.object({
+  tracks: z.array(ImportTrackSchema),
+})
+export type ImportTracksInput = z.infer<typeof ImportTracksSchema>
+
+// One row per submitted (distinct) title: `imported` are the names that landed,
+// `skipped` the ones already in the catalog (or duplicated within the file).
+// Counts drive the toast; the full lists are kept for richer feedback later.
+export const ImportTracksResultSchema = z.object({
+  imported: z.array(z.string()),
+  skipped: z.array(z.string()),
+})
+export type ImportTracksResultDto = z.infer<typeof ImportTracksResultSchema>
+
 // Track export — the Tracks list rendered to CSV/PDF, scoped to the active
 // tag/search filter (CONTEXT.md: "Track export"). `financials` opts into the
 // license-derived columns; default off keeps the export a share-safe catalog.

@@ -159,7 +159,10 @@ export class ReportsService {
     switch (groupBy) {
       case 'brand':
         return [
-          l.brand?.name ?? l.license?.brand.name ?? l.demo?.brand.name ?? FALLBACK,
+          l.brand?.name ??
+            l.license?.brand.name ??
+            l.demo?.brand.name ??
+            FALLBACK,
         ];
       case 'payer':
         // Leads carry no payer of their own — only a license/demo provides one.

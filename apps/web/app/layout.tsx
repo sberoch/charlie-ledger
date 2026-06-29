@@ -3,6 +3,7 @@ import { Archivo_Black, IBM_Plex_Mono } from "next/font/google"
 
 import "@workspace/ui/globals.css"
 import { Providers } from "@/components/providers"
+import { OWNER_NAME } from "@/lib/branding"
 import { cn } from "@workspace/ui/lib/utils"
 
 // The entire UI is set in IBM Plex Mono (the ledger voice); Archivo Black is
@@ -20,7 +21,7 @@ const archivoBlack = Archivo_Black({
 })
 
 export const metadata: Metadata = {
-  title: "CHARLIE FOLTZ | LICENSE MANAGER",
+  title: `${OWNER_NAME} | LICENSE MANAGER`,
   description: "Ledger for licenses, demos, invoices, and payments.",
 }
 

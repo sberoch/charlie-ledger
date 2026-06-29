@@ -75,9 +75,12 @@ export const MixSliceSchema = z.object({
 })
 
 export const TagTrendRowSchema = z.object({
-  /** The tag combination, sorted (e.g. ["cinematic","driving"]). */
-  tags: z.array(z.string()),
+  /** A single tag (mood). Rows are per individual tag, so a multi-tag track's
+   *  fee counts toward each of its tags — totals over-sum by design (like the
+   *  Report's Usage Type rows). See CONTEXT.md "Tag trend". */
+  tag: z.string(),
   total: MoneySchema,
+  /** Licenses on tracks carrying this tag. */
   licenseCount: z.number().int(),
   /** Per-brand breakdown, expanded on tap. */
   brands: z.array(z.object({ brandName: z.string(), amount: MoneySchema })),

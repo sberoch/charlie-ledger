@@ -68,13 +68,14 @@ export async function seedTracks() {
       row = { id: existing.id };
     }
 
-    // Reconcile assignments: clear then re-insert this track's tags.
+    // Reconcile assignments: clear then re-insert this track's tags. The
+    // vocabulary is now the curated mood list (seed-tags.ts), so a demo track's
+    // legacy genre/texture tags may no longer exist — skip those silently rather
+    // than fail the seed (the mock catalog's exact tags are not load-bearing).
     await db.delete(trackTag).where(eq(trackTag.trackId, row.id));
-    const tagIds = t.tags.map((name) => {
-      const id = tagIdByName.get(name);
-      if (!id) throw new Error(`Seed tag missing from vocabulary: ${name}`);
-      return id;
-    });
+    const tagIds = t.tags
+      .map((name) => tagIdByName.get(name))
+      .filter((id): id is string => id !== undefined);
     if (tagIds.length > 0)
       await db
         .insert(trackTag)

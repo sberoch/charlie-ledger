@@ -5,6 +5,7 @@ import {
   formatMoney,
   type InvoiceDto,
 } from '@workspace/shared';
+import { SENDER } from '../common/branding';
 
 // Layout v1, derived from the prototype's ledger aesthetic: mono body
 // (Courier), display header (Helvetica-Bold), hairline rules, square
@@ -16,19 +17,6 @@ const MUTED = '#8d8a82';
 const HAIRLINE = '#d9d5cd';
 const RUST = '#8b3a2a';
 const MARGIN = 56;
-
-// Charlie's real billing identity, matching the invoices he sends from
-// QuickBooks. Hardcoded by decision (one-person LLC; changes ~once a decade).
-const SENDER = {
-  legalName: 'Charlie Foltz Media LLC',
-  // Name-less contact stack — the legal name is the big header above it.
-  contact: [
-    '294 Starling Way',
-    'Hendersonville, NC 28792',
-    'production@charliefoltz.com',
-    '+1 (707) 972-1873',
-  ],
-};
 
 function human(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString('en-US', {

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Riverstone Media — Catalog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ffffff;
+    --panel:#f7f5f0;
+    --ink:#1a1a1a;
+    --ink-soft:#5a5852;
+    --muted:#8d8a82;
+    --border:#d9d5cd;
+    --border-soft:#ebe7df;
+    --ochre:#b8843a;
+    --ochre-soft:rgba(184,132,58,.08);
+    --rust:#8b3a2a;
+    --rust-soft:rgba(139,58,42,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Mono","Courier New",monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.display{font-family:"Archivo Black","IBM Plex Mono",sans-serif;font-weight:400}
+
+  .sheet{
+    position:relative;
+    width:100vw;height:100vh;
+    padding:5.2vh 5vw;
+    display:flex;flex-direction:column;
+    /* faint ledger ruling */
+    background-image:
+      linear-gradient(var(--border-soft) 1px,transparent 1px),
+      linear-gradient(90deg,var(--border-soft) 1px,transparent 1px);
+    background-size:3.2vw 3.2vw;
+  }
+
+  /* top ledger meta row */
+  .meta{
+    display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1.5px solid var(--ink);
+    padding-bottom:14px;
+    font-size:.92rem;letter-spacing:.16em;text-transform:uppercase;
+  }
+  .meta .who{font-weight:600}
+  .meta .who b{font-weight:700}
+  .meta .where{color:var(--muted);font-weight:500}
+
+  /* hero stats */
+  .hero{
+    flex:1;display:flex;align-items:center;
+    gap:6vw;
+    border-bottom:1px solid var(--border);
+  }
+  .count{display:flex;align-items:baseline;gap:1.4vw}
+  .count .n{font-size:clamp(96px,17vw,260px);line-height:.82;letter-spacing:-.02em}
+  .count .unit{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1.1rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft)}
+
+  .note{max-width:42ch}
+  .note .tag{
+    display:inline-block;
+    background:var(--ochre-soft);color:var(--ochre);
+    border:1px solid var(--ochre);
+    padding:5px 12px;font-size:.8rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    margin-bottom:18px;
+  }
+  .note .lines{font-size:2.3rem;line-height:1.4;font-weight:500}
+  .note .lines .q{color:var(--ochre);font-weight:700}
+
+  /* tool stack */
+  .stack{padding-top:3.4vh}
+  .stack .label{font-size:.82rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .tools{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border)}
+  .tool{
+    display:flex;align-items:center;gap:18px;
+    padding:22px 24px;
+    border-right:1px solid var(--border);
+    background:var(--paper);
+  }
+  .tool:last-child{border-right:none}
+  .glyph{width:50px;height:50px;flex:none;display:grid;place-items:center}
+  .tool .name{font-size:1.12rem;font-weight:600;letter-spacing:.02em}
+  .tool .role{font-size:.82rem;color:var(--muted);margin-top:3px;letter-spacing:.04em}
+
+  /* brand glyph backings (square, per design system) */
+  .g-qb{background:#2CA01C}
+  .g-disco{background:#0f0f12}
+  .g-mail{background:#ffffff;border:1px solid var(--border)}
+  .g-sheet{background:#188038}
+  .disco-word{font-family:"Archivo Black",sans-serif;letter-spacing:.06em;font-size:.78rem;color:#fff}
+  .disco-dot{color:#ff3b30}
+</style>
+</head>
+<body>
+  <section class="sheet">
+
+    <div class="meta">
+      <div class="who"><b>RIVERSTONE MEDIA</b></div>
+      <div class="where">John Doe</div>
+    </div>
+
+    <div class="hero">
+      <div class="count">
+        <span class="n display">300</span>
+        <span class="unit">tracks<br/>licensed</span>
+      </div>
+      <div class="note">
+        <div class="lines">Licensed <span class="q">where?</span> For <span class="q">how long?</span> Which <span class="q">royalties</span> are owed?</div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="label">The stack it took to keep up</div>
+      <div class="tools">
+
+        <div class="tool">
+          <div class="glyph g-qb">
+            <svg width="30" height="30" viewBox="0 0 100 100" aria-label="QuickBooks">
+              <rect width="100" height="100" fill="#2CA01C"/>
+              <text x="50" y="70" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="56" font-weight="700" fill="#fff">qb</text>
+            </svg>
+          </div>
+          <div>
+            <div class="name">QuickBooks</div>
+            <div class="role">Accounting &amp; invoices</div>
+          </div>
+        </div>
+
+        <div class="tool">
+          <div class="glyph g-disco">
+            <svg width="40" viewBox="0 0 162 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Disco">
+              <path d="M19.1439 1.13574H7.52936L0.40625 34.6927H14.7422C27.3081 34.6927 35.5653 27.5279 35.5653 15.9649C35.5653 7.71137 29.3039 1.13574 19.1423 1.13574H19.1439ZM15.1058 27.0284H11.0228L14.8783 8.7985H18.0546C23.9076 8.7985 26.5377 12.5626 26.5377 16.599C26.5377 22.8111 21.593 27.0284 15.1058 27.0284Z" fill="white"/>
+              <path d="M43.8666 1.13574L36.7451 34.6927H45.6814L52.8046 1.13574H43.8666Z" fill="white"/>
+              <path d="M68.9999 0.365723C60.7428 0.365723 56.0255 5.39951 56.0255 11.7478C56.0255 15.5568 58.2488 18.5956 62.604 20.2271L67.7762 22.222C69.2274 22.8112 70.0892 23.8551 70.0892 25.0784C70.0892 27.1197 68.5018 28.4342 66.0975 28.4342C63.5571 28.4342 61.1528 27.2094 60.8357 24.4443H52.3062C51.9426 31.9726 58.6124 35.463 66.1424 35.463C73.6723 35.463 79.0719 31.5179 79.0719 24.4443C79.0719 20.091 76.3954 16.9161 71.7678 15.1485L67.2764 13.4257C65.7788 12.8365 65.0532 11.7926 65.0532 10.6142C65.0532 8.75537 66.5508 7.48572 68.7276 7.48572C71.3594 7.48572 72.9019 8.52802 73.038 11.1586H81.4314C81.8847 3.85768 76.1231 0.365723 69.0015 0.365723H68.9999Z" fill="white"/>
+              <path d="M103.411 8.16511C107.857 8.16511 111.168 11.0679 111.804 15.0129H120.878C120.561 5.98924 113.121 0.319824 103.821 0.319824C92.3887 0.319824 83.5869 9.07132 83.5869 19.592C83.5869 28.7518 91.072 35.4187 101.099 35.4187C110.49 35.4187 117.748 29.3426 119.79 20.9529H110.627C109.175 24.898 105.546 27.6182 101.371 27.6182C96.2458 27.6182 92.7058 23.6731 92.7058 18.9115C92.7058 12.9251 97.8331 8.16511 103.412 8.16511H103.411Z" fill="white"/>
+              <path d="M143.697 0.411133C131.901 0.411133 123.372 9.07297 123.372 19.592C123.372 28.9327 131.175 35.4187 140.793 35.4187C152.588 35.4187 161.162 26.712 161.162 16.1914C161.162 6.84907 153.269 0.411133 143.697 0.411133ZM141.201 27.6183C136.12 27.6183 132.446 23.6732 132.446 18.9564C132.446 12.97 137.663 8.20998 143.288 8.20998C148.415 8.20998 151.999 12.1102 151.999 16.9615C151.999 22.8118 146.826 27.6183 141.201 27.6183Z" fill="white"/>
+            </svg>
+          </div>
+          <div>
+            <div class="name">Disco</div>
+            <div class="role">Catalog &amp; pitching</div>
+          </div>
+        </div>
+
+        <div class="tool">
+          <div class="glyph g-mail">
+            <svg width="28" height="22" viewBox="0 0 48 36" aria-label="Email">
+              <rect x="1" y="1" width="46" height="34" fill="#fff" stroke="#e4e7ec"/>
+              <path d="M2 6 L24 22 L46 6" fill="none" stroke="#ea4335" stroke-width="3.6" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="name">Emails</div>
+            <div class="role">Deals &amp; approvals</div>
+          </div>
+        </div>
+
+        <div class="tool">
+          <div class="glyph g-sheet">
+            <svg width="26" height="28" viewBox="0 0 40 44" aria-label="Spreadsheets">
+              <rect x="2" y="2" width="36" height="40" fill="#fff"/>
+              <g stroke="#188038" stroke-width="2.6">
+                <line x1="8" y1="16" x2="32" y2="16"/>
+                <line x1="8" y1="24" x2="32" y2="24"/>
+                <line x1="8" y1="32" x2="32" y2="32"/>
+                <line x1="16" y1="11" x2="16" y2="37"/>
+                <line x1="24" y1="11" x2="24" y2="37"/>
+              </g>
+            </svg>
+          </div>
+          <div>
+            <div class="name">Spreadsheets</div>
+            <div class="role">Everything else</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

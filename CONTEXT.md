@@ -49,6 +49,27 @@ history. Deleting a Track clears its tag assignments and nulls any Demo conversi
 points at it; Licenses block the delete before it is ever reached. See ADR-0006.
 _Avoid_: Song, asset.
 
+**Track import**:
+A recurring bulk-add of catalog [[track]]s from a Disco CSV metadata export. The track name
+is read off the `TRACKTITLE` column; **mood [[tag]]s** are mined from the free-text `COMMENTS`
+column. The CSV is parsed **in the browser**; titles are trimmed, blanks dropped, and the set
+**deduped case-insensitively both within the file and against the existing catalog**, so
+re-importing the same export is a safe no-op. **Best-effort**, not all-or-nothing: a collision
+(or a race) silently skips that row rather than aborting the batch. Explicitly **not** a
+resurrection of the retired Disco mirror — it is a one-way manual insert that mints ordinary
+platform-owned Tracks; Disco neither owns nor syncs them afterward. The catalog's `name`
+natural key still governs, but the import path **relaxes the 120-char create cap** (trusting
+the source export).
+Tag mining is an **allow-list match, never pick-or-create**: every word in `COMMENTS` is a
+candidate, but only those already present in the platform's curated **mood vocabulary** (the
+seeded Tag list) are attached — genres, instruments, tempo, and licensing junk are dropped by
+simply never being in the vocabulary. The vocabulary is deliberately **lean** (it omits
+near-universal positives like *cool / fun / happy* that would blanket the catalog and
+discriminate nothing) and is Settings-managed like any Tag, so it grows or shrinks there.
+Tags attach only to **newly imported** tracks; a skipped (already-existing) track is left
+untouched.
+_Avoid_: Sync, mirror, Disco import (it does not couple to Disco), backfill.
+
 **Tag**:
 A curated label in Charlie's catalog vocabulary (cinematic, electronic, warm). Platform-owned
 and deliberately not an enum. Case-insensitively unique. **Created** either from Settings or
@@ -210,9 +231,13 @@ whose `renewed_to_id` points at a replacing License. A measure of how often expi
 come back; surfaced alongside Revenue at Risk on the dashboard.
 
 **Tag trend**:
-A ranked rollup answering "what styles sell, and to whom": License fees summed by the
-licensed Track's **tag combination**, expandable per Brand. Commitment basis, like
-lifetime sales. Tags are the platform-owned catalog vocabulary (managed from Settings).
+A ranked rollup answering "what styles sell, and to whom": License fees summed **per
+individual Tag**, expandable per Brand. Commitment basis, like lifetime sales. Because a
+Track carries many Tags, a License's fee counts toward **each** of its Track's Tags — so the
+rows **overlap and over-sum the grand total by design**, exactly like the Report's Usage Type
+rows. (It was originally summed by the Track's whole *tag combination*, but once tracks carry
+many mood tags every combination is unique and ranks nothing — the individual Tag is the
+meaningful unit.) Tags are the platform-owned catalog vocabulary (managed from Settings).
 
 **Report (sales report)**:
 A date-range sales pull grouped by Brand / Payer / Track / Usage Type, on a **cash basis**

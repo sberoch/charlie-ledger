@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@workspace/ui/lib/utils"
 import { signOut, useSession } from "@/lib/auth-client"
+import { OWNER_NAME, displayEmail } from "@/lib/branding"
 import { MORE_NAV, PRIMARY_NAV, type NavItem } from "./nav-config"
 
 function SidebarItem({ item, active }: { item: NavItem; active: boolean }) {
@@ -38,7 +39,7 @@ export function AppSidebar() {
           href="/dashboard"
           className="font-heading text-xl leading-none tracking-tight"
         >
-          CHARLIE FOLTZ
+          {OWNER_NAME}
         </Link>
         <div className="mt-2 text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
           License manager
@@ -71,7 +72,7 @@ export function AppSidebar() {
         Logged in as
         <br />
         <span className="font-semibold text-foreground">
-          {session?.user.email ?? "…"}
+          {displayEmail(session?.user.email)}
         </span>
         <button
           type="button"

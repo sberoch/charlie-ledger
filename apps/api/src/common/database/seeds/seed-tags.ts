@@ -6,36 +6,59 @@ import { tag } from '../schema';
 // Tier 1 seed — the platform-owned tag vocabulary. Runs everywhere (incl. prod
 // at launch) before the catalog seed, since track_tag references these by id.
 //
-// The first 21 are exactly the distinct tags the seeded tracks carry, so every
-// track FK resolves and the trend/chips light up. The last two are deliberately
-// UNUSED — they exercise the Settings screen's zero-usage row and its
-// delete-with-no-confirm path without any track-editing UI existing yet.
+// This is the canonical **mood / feel** vocabulary, and it doubles as the
+// allow-list for the Disco CSV import (CONTEXT.md "Track import"): the importer
+// attaches a COMMENTS word only when it matches a Tag that already exists here,
+// so genres, instruments, tempo, and licensing junk are dropped by never being
+// in the vocabulary in the first place. Curated lean — deliberately excludes
+// near-universal positives (cool/fun/happy…) that would tag the whole catalog
+// and discriminate nothing. Renameable / deletable from Settings like any Tag.
 export const TAGS = [
-  // ── In use by the seeded catalog (seed-tracks.ts) ──
-  'cinematic',
-  'driving',
-  'expansive',
-  'atmospheric',
-  'melancholic',
-  'sparse',
-  'indie',
-  'warm',
-  'electronic',
-  'geometric',
-  'pulsing',
-  'uplifting',
-  'ambient',
-  'slow',
-  'tense',
-  'glitched',
   'dark',
-  'intimate',
+  'mysterious',
+  'moody',
+  'dreamy',
+  'reflective',
+  'atmospheric',
+  'minimal',
+  'gritty',
+  'intense',
+  'tension',
+  'dramatic',
+  'emotive',
+  'romantic',
+  'epic',
+  'light',
+  'retro',
+  'vintage',
+  'sad',
+  'haunting',
+  'badass',
+  'triumphant',
+  'inspiring',
+  'celebratory',
+  'motivating',
+  'chill',
+  'colorful',
+  'proud',
   'organic',
-  'orchestral',
-  'playful',
-  // ── Unused — zero-usage demo rows ──
-  'acoustic',
-  'experimental',
+  'funky',
+  'relaxed',
+  'tropical',
+  'sassy',
+  'sweet',
+  'bubbly',
+  'serious',
+  'solemn',
+  'athletic',
+  'swagger',
+  'sexy',
+  'anthemic',
+  'hopeful',
+  'warm',
+  'upbeat',
+  'powerful',
+  'building',
 ];
 
 export async function seedTags() {

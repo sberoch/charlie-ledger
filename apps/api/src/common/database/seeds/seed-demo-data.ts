@@ -596,7 +596,11 @@ async function seedDemoData() {
 
   // 2) Never licensed but old — createdAt is the fallback reference date and
   //    it is over three years past → SELL THIS via the createdAt fallback.
-  await insertSellTrack('Forgotten Embers', ['cinematic', 'melancholic'], 365 * 4);
+  await insertSellTrack(
+    'Forgotten Embers',
+    ['cinematic', 'melancholic'],
+    365 * 4,
+  );
 
   // 3) Negative control — never licensed AND recently created → no badge.
   await insertSellTrack('Fresh Pressing', ['indie', 'warm'], 30);

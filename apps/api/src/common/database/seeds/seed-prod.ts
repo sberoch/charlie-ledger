@@ -3,13 +3,15 @@ import { eq } from 'drizzle-orm';
 import { auth } from '../../../auth/auth';
 import { db } from '../db';
 import { appSetting, user } from '../schema';
-import { seedTracks } from './seed-tracks';
+import { seedTags } from './seed-tags';
 
 // Tier 0 seed — production bootstrap. Idempotent, safe to re-run. Brings a
 // fresh prod database to a usable state: the app_setting singleton, the first
 // admin user (no self-signup exists — someone has to be created out-of-band),
-// and the tier-1 mock catalog via seedTracks() (which seeds the tag vocabulary
-// before wiring track_tag).
+// and the platform-owned mood **tag vocabulary** (which also backs the Disco
+// CSV import's allow-list — see CONTEXT.md "Track import"). Prod does NOT seed a
+// mock catalog: Charlie starts with an empty Tracks list and populates it via
+// import / manual entry. The mock tracks live in the dev seed (seed-tracks.ts).
 //
 // Credentials default to the launch admin but are env-overridable so prod can
 // set its own without a code change:
@@ -45,7 +47,7 @@ async function seedAdminUser() {
 export async function seedProd() {
   await seedAppSetting();
   await seedAdminUser();
-  await seedTracks();
+  await seedTags();
   console.log('✓ production seed complete');
 }
 

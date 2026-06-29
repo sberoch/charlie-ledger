@@ -60,7 +60,7 @@ function TagTrendRows({
   rows,
 }: {
   rows: Array<{
-    tags: string[]
+    tag: string
     total: string
     licenseCount: number
     brands: Array<{ brandName: string; amount: string }>
@@ -71,7 +71,7 @@ function TagTrendRows({
   return (
     <div className="flex flex-col gap-3.5">
       {rows.map((row) => {
-        const key = row.tags.join("|")
+        const key = row.tag
         const open = expanded === key
         return (
           <div key={key} className="text-[12.5px]">
@@ -82,7 +82,7 @@ function TagTrendRows({
             >
               <span className="mb-1 flex justify-between gap-2">
                 <span className="truncate tracking-[0.02em]">
-                  {row.tags.join(" + ")}
+                  {row.tag}
                   <span className="ml-1.5 text-[11px] text-muted-foreground">
                     ×{row.licenseCount}
                   </span>

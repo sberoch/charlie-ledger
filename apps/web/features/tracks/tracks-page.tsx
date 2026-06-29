@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/shell/page-header"
 import { formatDate } from "@/lib/format"
 import { useTracks, useTrackTags } from "./hooks"
 import { TrackExportDialog } from "./track-export-dialog"
+import { TrackImportButton } from "./track-import-button"
 
 const STATUS_OPTIONS: Array<{ value: TrackStatus; label: string }> = [
   { value: "active", label: "Active" },
@@ -45,6 +46,7 @@ export function TracksPage() {
           search={search}
           status={status}
         />
+        <TrackImportButton />
         <Button asChild>
           <Link href="/tracks/new">+ New Track</Link>
         </Button>
@@ -156,12 +158,19 @@ export function TracksPage() {
                     ) : null}
                   </td>
                   <td className="px-3.5 py-4">
-                    <span className="flex flex-wrap gap-1.5">
-                      {track.tags.map((t) => (
+                    {/* Cap chips so a many-tagged track stays one row; the full
+                        set lives on the track detail page. */}
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {track.tags.slice(0, 5).map((t) => (
                         <Badge key={t} variant="tag">
                           {t}
                         </Badge>
                       ))}
+                      {track.tags.length > 5 ? (
+                        <span className="text-[11px] tracking-[0.04em] text-muted-foreground tabular-nums">
+                          +{track.tags.length - 5}
+                        </span>
+                      ) : null}
                       {track.sellRecommended ? (
                         <Badge variant="urgent">SELL THIS</Badge>
                       ) : null}

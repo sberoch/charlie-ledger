@@ -5,6 +5,7 @@ import {
   formatMoney,
   type ReportResultDto,
 } from '@workspace/shared';
+import { COMPANY_NAME } from '../common/branding';
 
 const INK = '#1a1a1a';
 const MUTED = '#8d8a82';
@@ -28,7 +29,7 @@ export class ReportPdfService {
     const right = doc.page.width - MARGIN;
 
     doc.font('Helvetica-Bold').fontSize(18).fillColor(INK);
-    doc.text('CHARLIE FOLTZ MEDIA LLC', MARGIN, MARGIN);
+    doc.text(COMPANY_NAME.toUpperCase(), MARGIN, MARGIN);
     doc.font('Courier').fontSize(9).fillColor(MUTED);
     doc.text(
       `SALES REPORT · BY ${REPORT_GROUP_BY_LABELS[result.groupBy].toUpperCase()}`,

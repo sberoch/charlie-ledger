@@ -8,6 +8,8 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   formatLicenseSpan,
   type CreateTrackInput,
+  type ImportTracksInput,
+  type ImportTracksResultDto,
   type TrackDetailDto,
   type TrackLicenseHistoryItemDto,
   type TrackListItemDto,
@@ -237,6 +239,81 @@ export class TracksService {
       return row.id;
     });
     return this.detail(id);
+  }
+
+  /**
+   * Bulk import from a Disco CSV export (CONTEXT.md "Track import"). Best-effort,
+   * not all-or-nothing: titles are trimmed, blanks dropped, and the set deduped
+   * case-insensitively *within the batch* (first occurrence wins) so the single
+   * bulk insert never contains an intra-batch collision. A bare
+   * `onConflictDoNothing()` (the natural-key index is on `lower(name)`, an
+   * expression target can't reference — same constraint as the seed) then skips
+   * any title already in the catalog, or one created by a race, without aborting
+   * the batch. `imported` is what actually landed; `skipped` is the distinct
+   * submitted titles minus those.
+   *
+   * Tags: each DTO carries the candidate words the browser pulled from the
+   * track's COMMENTS column. The import is an **allow-list match, never a
+   * pick-or-create** — a candidate becomes a tag only if it already exists in
+   * the platform's curated mood vocabulary (seed-tags.ts), so genres /
+   * instruments / junk are dropped by simply not being in the vocabulary. Tags
+   * are attached only to *newly imported* tracks; an existing (skipped) track is
+   * left entirely untouched.
+   */
+  async importTracks(input: ImportTracksInput): Promise<ImportTracksResultDto> {
+    // Trim, drop blanks, dedupe case-insensitively (first spelling wins),
+    // carrying each survivor's candidate tag words.
+    const byKey = new Map<string, { name: string; tags: string[] }>();
+    for (const t of input.tracks) {
+      const name = t.name.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, { name, tags: t.tags });
+    }
+    const survivors = [...byKey.values()];
+    if (survivors.length === 0) return { imported: [], skipped: [] };
+
+    // The live vocabulary IS the allow-list: candidate word → tag id, by lower().
+    const vocab = await this.db
+      .select({ id: tag.id, name: tag.name })
+      .from(tag);
+    const tagIdByName = new Map(vocab.map((t) => [t.name.toLowerCase(), t.id]));
+
+    const result = await this.db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(track)
+        .values(survivors.map((s) => ({ name: s.name })))
+        .onConflictDoNothing()
+        .returning({ id: track.id, name: track.name });
+
+      // Attach matched mood tags to each freshly-inserted track.
+      const insertedIdByKey = new Map(
+        inserted.map((r) => [r.name.toLowerCase(), r.id]),
+      );
+      const assignments: Array<{ trackId: string; tagId: string }> = [];
+      for (const s of survivors) {
+        const trackId = insertedIdByKey.get(s.name.toLowerCase());
+        if (!trackId) continue; // skipped (already existed) — leave untouched
+        const tagIds = new Set<string>();
+        for (const raw of s.tags) {
+          const id = tagIdByName.get(raw.trim().toLowerCase());
+          if (id) tagIds.add(id);
+        }
+        for (const tagId of tagIds) assignments.push({ trackId, tagId });
+      }
+      if (assignments.length > 0) await tx.insert(trackTag).values(assignments);
+
+      return inserted;
+    });
+
+    const importedKeys = new Set(result.map((r) => r.name.toLowerCase()));
+    const imported = survivors
+      .map((s) => s.name)
+      .filter((n) => importedKeys.has(n.toLowerCase()));
+    const skipped = survivors
+      .map((s) => s.name)
+      .filter((n) => !importedKeys.has(n.toLowerCase()));
+    return { imported, skipped };
   }
 
   /** Update name and/or tags. Omitted `tags` leaves assignments untouched; an
