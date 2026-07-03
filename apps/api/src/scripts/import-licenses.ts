@@ -7,11 +7,20 @@ import {
   defaultEndDate,
   licenseInvoiceDescription,
   normalizeUsageTypes,
+  UsageTypeSchema,
   type ExclusivityTier,
   type IsoDate,
   type TermLength,
   type UsageType,
 } from '@workspace/shared';
+
+// @workspace/shared resolves to its BUILT dist at runtime while types come from
+// src — a stale dist typechecks green but silently strips the new enum values
+// (this corrupted the first prod import; see repair-license-import.ts).
+if (!(UsageTypeSchema.options as readonly string[]).includes('all_media'))
+  throw new Error(
+    'stale @workspace/shared build — run `pnpm --filter @workspace/shared build` first',
+  );
 import { InvoiceIssuerService } from '../invoices/invoice-issuer.service';
 import { db } from '../common/database/db';
 import {

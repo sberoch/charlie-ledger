@@ -11,6 +11,7 @@ import {
   type CreateBrandInput,
   type CreatePayerInput,
   type PayerDto,
+  type UpdateBrandInput,
   type UpdatePayerInput,
 } from "@workspace/shared"
 import { api } from "@/lib/api"
@@ -74,6 +75,25 @@ export function useCreatePayer() {
         schema: PayerSchema,
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["payers"] }),
+  })
+}
+
+export function useUpdateBrand() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateBrandInput & { id: string }) =>
+      api<BrandDto>(`/brands/${id}`, {
+        method: "PATCH",
+        body: input,
+        schema: BrandSchema,
+      }),
+    onSuccess: () => {
+      // A brand's name/category is denormalized into license rows and the
+      // dashboard's per-category rollups.
+      void queryClient.invalidateQueries({ queryKey: ["brands"] })
+      void queryClient.invalidateQueries({ queryKey: ["licenses"] })
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+    },
   })
 }
 

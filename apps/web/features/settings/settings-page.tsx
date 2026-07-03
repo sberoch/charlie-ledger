@@ -1,222 +1,78 @@
 "use client"
 
-import { useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { z } from "zod"
-import {
-  AppSettingsSchema,
-  UserSchema,
-  formatInvoiceNumber,
-  type AddUserInput,
-  type AppSettingsDto,
-  type UpdateAppSettingsInput,
-  type UserDto,
-} from "@workspace/shared"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import { Panel } from "@/components/panel"
+import { useRouter, useSearchParams } from "next/navigation"
+import { cn } from "@workspace/ui/lib/utils"
 import { PageHeader } from "@/components/shell/page-header"
-import { api } from "@/lib/api"
+import { useBrands } from "@/features/parties/hooks"
+import { BrandsPanel, isUncategorized } from "./brands-panel"
+import { GeneralPanel } from "./general-panel"
+import { PayersPanel } from "./payers-panel"
 import { TagsPanel } from "./tags-panel"
+import { UsersPanel } from "./users-panel"
 
-function useSettings() {
-  return useQuery({
-    queryKey: ["settings"],
-    queryFn: () => api("/settings", { schema: AppSettingsSchema }),
-  })
-}
+const SECTIONS = [
+  { id: "general", label: "General" },
+  { id: "users", label: "Users" },
+  { id: "brands", label: "Brands" },
+  { id: "payers", label: "Payers" },
+  { id: "tags", label: "Tags" },
+] as const
 
-function useUsers() {
-  return useQuery({
-    queryKey: ["settings", "users"],
-    queryFn: () => api("/settings/users", { schema: z.array(UserSchema) }),
-  })
-}
+type SectionId = (typeof SECTIONS)[number]["id"]
 
 export function SettingsPage() {
-  const queryClient = useQueryClient()
-  const { data: settings } = useSettings()
-  const { data: users } = useUsers()
+  const router = useRouter()
+  const params = useSearchParams()
+  const raw = params.get("section")
+  const section: SectionId = SECTIONS.some((s) => s.id === raw)
+    ? (raw as SectionId)
+    : "general"
 
-  const [lookahead, setLookahead] = useState<string | null>(null)
-  const [nextNumber, setNextNumber] = useState<string | null>(null)
-  const [newUser, setNewUser] = useState<AddUserInput>({
-    name: "",
-    email: "",
-    password: "",
-  })
-
-  const updateSettings = useMutation({
-    mutationFn: (input: UpdateAppSettingsInput) =>
-      api<AppSettingsDto>("/settings", {
-        method: "PATCH",
-        body: input,
-        schema: AppSettingsSchema,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] })
-      toast.success("Settings saved")
-      setLookahead(null)
-      setNextNumber(null)
-    },
-    onError: (e) => toast.error(e.message),
-  })
-
-  const addUser = useMutation({
-    mutationFn: (input: AddUserInput) =>
-      api<UserDto>("/settings/users", {
-        method: "POST",
-        body: input,
-        schema: UserSchema,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings", "users"] })
-      toast.success("User added")
-      setNewUser({ name: "", email: "", password: "" })
-    },
-    onError: (e) => toast.error(e.message),
-  })
-
-  if (!settings) return <Skeleton className="h-64" />
+  const { data: brands } = useBrands()
+  const uncategorized = (brands ?? []).filter(isUncategorized).length
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader title="Settings" />
 
-      <div className="flex flex-col gap-5">
-        <Panel title="Weekly Digest">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-            Mondays 7:00am EST. Licenses expiring, holds lifting, overdue
-            invoices within the look-ahead window.
-          </p>
-          <div className="flex items-end gap-2">
-            <div>
-              <label className="mb-2 block text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                Look-ahead · days
-              </label>
-              <Input
-                type="number"
-                min={1}
-                max={90}
-                value={lookahead ?? String(settings.digestLookaheadDays)}
-                onChange={(e) => setLookahead(e.target.value)}
-                className="max-w-28"
-              />
-            </div>
-            <Button
+      <div className="flex flex-col gap-5 md:grid md:grid-cols-[11rem_1fr] md:items-start">
+        <nav
+          aria-label="Settings sections"
+          className="flex overflow-x-auto border bg-card md:sticky md:top-6 md:flex-col"
+        >
+          {SECTIONS.map(({ id, label }) => (
+            <button
+              key={id}
               type="button"
-              size="sm"
-              className="h-10"
-              disabled={lookahead === null || updateSettings.isPending}
+              aria-current={section === id ? "page" : undefined}
               onClick={() =>
-                updateSettings.mutate({
-                  digestLookaheadDays: Number(lookahead),
-                })
+                router.replace(`/settings?section=${id}`, { scroll: false })
               }
+              className={cn(
+                "flex shrink-0 cursor-pointer items-center justify-between gap-3 border-l-2 px-3.5 py-2.5 text-left text-sm transition-colors",
+                "md:border-b md:border-b-border-soft md:last:border-b-0",
+                section === id
+                  ? "border-l-foreground bg-secondary/60 font-medium text-foreground"
+                  : "border-l-transparent text-muted-foreground hover:text-foreground"
+              )}
             >
-              Save
-            </Button>
-          </div>
-        </Panel>
-
-        <Panel title="Invoice Numbering">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-            Next number to be issued:{" "}
-            <strong className="text-foreground">
-              {formatInvoiceNumber(settings.nextInvoiceNumber)}
-            </strong>
-            . Move it forward to continue an existing sequence (e.g. where
-            QuickBooks left off). It can never rewind below an issued number.
-          </p>
-          <div className="flex items-end gap-2">
-            <div>
-              <label className="mb-2 block text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                Next invoice number
-              </label>
-              <Input
-                type="number"
-                min={1}
-                value={nextNumber ?? String(settings.nextInvoiceNumber)}
-                onChange={(e) => setNextNumber(e.target.value)}
-                className="max-w-28"
-              />
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-10"
-              disabled={nextNumber === null || updateSettings.isPending}
-              onClick={() =>
-                updateSettings.mutate({ nextInvoiceNumber: Number(nextNumber) })
-              }
-            >
-              Save
-            </Button>
-          </div>
-        </Panel>
-
-        <Panel title={`Users · ${users?.length ?? "…"}`}>
-          <div className="mb-4 flex flex-col">
-            {users?.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between border-b border-border-soft py-2.5 text-sm last:border-0"
-              >
-                <span className="font-medium">{user.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {user.email}
+              {label}
+              {id === "brands" && uncategorized > 0 ? (
+                <span className="text-[11px] text-ochre tabular-nums">
+                  {uncategorized}
                 </span>
-              </div>
-            ))}
-          </div>
-          <div className="border-t pt-4">
-            <div className="mb-2.5 text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Add user
-            </div>
-            <div className="flex flex-col gap-2.5 md:flex-row">
-              <Input
-                placeholder="Name"
-                value={newUser.name}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, name: e.target.value })
-                }
-              />
-              <Input
-                type="email"
-                placeholder="Email"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-              />
-              <Input
-                type="password"
-                placeholder="Password (min 8)"
-                value={newUser.password}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, password: e.target.value })
-                }
-              />
-              <Button
-                type="button"
-                disabled={
-                  addUser.isPending ||
-                  !newUser.name ||
-                  !newUser.email ||
-                  newUser.password.length < 8
-                }
-                onClick={() => addUser.mutate(newUser)}
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-        </Panel>
+              ) : null}
+            </button>
+          ))}
+        </nav>
 
-        <TagsPanel />
+        <div className="min-w-0">
+          {section === "general" ? <GeneralPanel /> : null}
+          {section === "users" ? <UsersPanel /> : null}
+          {section === "brands" ? <BrandsPanel /> : null}
+          {section === "payers" ? <PayersPanel /> : null}
+          {section === "tags" ? <TagsPanel /> : null}
+        </div>
       </div>
     </div>
   )
