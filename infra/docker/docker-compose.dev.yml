@@ -1,8 +1,12 @@
-name: app-dev
+# Project/container/volume names are foltz-specific on purpose: the erio
+# scaffold's generic `app-dev`/`app-postgres` names collided with other
+# checkouts (multioutreach) and the projects clobbered each other's pgdata
+# volume. Port 5432 is still shared — run one project's dev DB at a time.
+name: foltz-dev
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: app-postgres
+    container_name: foltz-postgres
     restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"

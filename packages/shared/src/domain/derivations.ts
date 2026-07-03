@@ -79,6 +79,18 @@ export function defaultEndDate(
   term: TermLength
 ): IsoDate | null {
   switch (term) {
+    case "one_day":
+      return addDays(startDate, 1)
+    case "one_month":
+      return addMonths(startDate, 1)
+    case "six_weeks":
+      return addDays(startDate, 42)
+    case "two_months":
+      return addMonths(startDate, 2)
+    case "three_months":
+      return addMonths(startDate, 3)
+    case "thirteen_weeks":
+      return addDays(startDate, 91)
     case "six_months":
       return addMonths(startDate, 6)
     case "one_year":
@@ -87,6 +99,8 @@ export function defaultEndDate(
       return addMonths(startDate, 24)
     case "three_years":
       return addMonths(startDate, 36)
+    case "five_years":
+      return addMonths(startDate, 60)
     case "perpetual":
       return null
   }

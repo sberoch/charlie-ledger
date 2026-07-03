@@ -1,12 +1,18 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // Medium a License grants the Track for. Closed controlled vocabulary.
+// `all_media` is a single grant value (never exploded into the other media);
+// `internet` is kept even though the historical sheet never used it — dropping
+// an enum value is a destructive migration with no benefit.
 export const usageType = pgEnum('usage_type', [
   'broadcast',
   'digital_media',
   'social_media',
   'internet',
   'internal',
+  'all_media',
+  'film_tv',
+  'radio',
 ]);
 
 // How exclusive a License's grant is. `work_for_hire` is modelled as a tier
@@ -19,11 +25,20 @@ export const exclusivityTier = pgEnum('exclusivity_tier', [
 ]);
 
 // License term. Drives the default end date; `perpetual` means no end date.
+// Ascending duration order; the sub-six-month values come from Charlie's
+// historical licenses. Must stay in sync with TermLengthSchema in shared.
 export const termLength = pgEnum('term_length', [
+  'one_day',
+  'one_month',
+  'six_weeks',
+  'two_months',
+  'three_months',
+  'thirteen_weeks',
   'six_months',
   'one_year',
   'two_years',
   'three_years',
+  'five_years',
   'perpetual',
 ]);
 

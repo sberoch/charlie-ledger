@@ -9,6 +9,9 @@ export const UsageTypeSchema = z.enum([
   "social_media",
   "internet",
   "internal",
+  "all_media",
+  "film_tv",
+  "radio",
 ])
 export type UsageType = z.infer<typeof UsageTypeSchema>
 
@@ -18,6 +21,11 @@ export const USAGE_TYPE_LABELS: Record<UsageType, string> = {
   social_media: "Social Media",
   internet: "Internet",
   internal: "Internal",
+  // "All Media" is a single grant value, deliberately NOT exploded into the
+  // other media — it is what Charlie's historical sheet says was sold.
+  all_media: "All Media",
+  film_tv: "Film / TV",
+  radio: "Radio",
 }
 
 // A License grants one or more Usage Types (see CONTEXT.md / ADR-0004). The set
@@ -58,28 +66,51 @@ export const EXCLUSIVITY_TIER_SHORT: Record<ExclusivityTier, string> = {
   work_for_hire: "WFH",
 }
 
+// Ascending duration order (drives dropdown order). The sub-six-month values
+// exist because Charlie's historical licenses actually used them.
 export const TermLengthSchema = z.enum([
+  "one_day",
+  "one_month",
+  "six_weeks",
+  "two_months",
+  "three_months",
+  "thirteen_weeks",
   "six_months",
   "one_year",
   "two_years",
   "three_years",
+  "five_years",
   "perpetual",
 ])
 export type TermLength = z.infer<typeof TermLengthSchema>
 
 export const TERM_LENGTH_LABELS: Record<TermLength, string> = {
+  one_day: "1 Day",
+  one_month: "1 Month",
+  six_weeks: "6 Weeks",
+  two_months: "2 Months",
+  three_months: "3 Months",
+  thirteen_weeks: "13 Weeks",
   six_months: "6 Months",
   one_year: "1 Year",
   two_years: "2 Years",
   three_years: "3 Years",
+  five_years: "5 Years",
   perpetual: "Perpetual",
 }
 
 export const TERM_LENGTH_SHORT: Record<TermLength, string> = {
+  one_day: "1d",
+  one_month: "1mo",
+  six_weeks: "6wk",
+  two_months: "2mo",
+  three_months: "3mo",
+  thirteen_weeks: "13wk",
   six_months: "6mo",
   one_year: "1yr",
   two_years: "2yr",
   three_years: "3yr",
+  five_years: "5yr",
   perpetual: "Perp.",
 }
 

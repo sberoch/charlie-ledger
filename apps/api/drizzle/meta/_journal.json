@@ -85,6 +85,13 @@
       "when": 1782239102875,
       "tag": "0011_motionless_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783086299652,
+      "tag": "0012_public_sentinels",
+      "breakpoints": true
     }
   ]
 }

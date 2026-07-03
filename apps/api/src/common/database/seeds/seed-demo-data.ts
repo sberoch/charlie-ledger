@@ -32,19 +32,20 @@ import { seedTracks } from './seed-tracks';
 // created through the real services so gapless numbering, bill-to snapshots,
 // and the born-invoiced invariant (ADR-0002) are exercised, not faked.
 
-const TERM_MONTHS: Record<Exclude<TermLength, 'perpetual'>, number> = {
+// Only the terms the demo fixtures actually use — not every TermLength.
+const TERM_MONTHS = {
   six_months: 6,
   one_year: 12,
   two_years: 24,
   three_years: 36,
-};
+} satisfies Partial<Record<TermLength, number>>;
 
 type LicenseFixture = {
   track: string;
   brand: string;
   category: string;
   usage: UsageType;
-  term: Exclude<TermLength, 'perpetual'>;
+  term: keyof typeof TERM_MONTHS;
   excl: ExclusivityTier;
   /** End date offset from today, in days — keeps the timeline story stable. */
   endsIn: number;

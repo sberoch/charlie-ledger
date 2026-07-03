@@ -70,6 +70,23 @@ Tags attach only to **newly imported** tracks; a skipped (already-existing) trac
 untouched.
 _Avoid_: Sync, mirror, Disco import (it does not couple to Disco), backfill.
 
+**License import** (historical backfill):
+The one-off load of Charlie's 2020–2026 QuickBooks license history. Each source row mints
+exactly one [[license]] plus its auto-issued [[invoice]]; original QuickBooks invoice numbers
+are not preserved (they survive only as a private note — the gapless sequence governs, and
+historical multi-line invoices arrive as separate single-line ones). The matcher links rows
+to existing catalog [[track]]s and **only acts when unambiguous**: a row matching no track —
+or more than one (some rows license several tracks at once) — is exported to a
+**needs-review CSV** that Charlie completes with the one canonical track name and hands back
+for a re-run. The import **never creates Tracks** — a genuinely missing track is created in
+the app first. Blank cells are interpreted, not rejected: blank term ⇒ 1 year, blank
+exclusivity ⇒ non-exclusive, the lone "6 months, Perpetual" ⇒ perpetual (raw strings kept in
+the private note). Every imported invoice is born **Paid on its transaction date**; Charlie
+un-marks the few still-open ones in the app. Deliberately fires **no reminder rules** and
+links **no [[renewal]]s** — renewal chains, brand categories, and open invoices are Charlie's
+post-import follow-ups. Idempotent: re-running skips already-imported rows, never duplicates.
+_Avoid_: sync, migration, track import (a different, recurring flow).
+
 **Tag**:
 A curated label in Charlie's catalog vocabulary (cinematic, electronic, warm). Platform-owned
 and deliberately not an enum. Case-insensitively unique. **Created** either from Settings or

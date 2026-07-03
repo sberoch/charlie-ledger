@@ -23,7 +23,8 @@
     "db:seed": "tsx src/common/database/seeds/seed-tracks.ts",
     "db:seed:prod": "tsx src/common/database/seeds/seed-prod.ts",
     "db:seed:demo": "tsx src/common/database/seeds/seed-demo-data.ts",
-    "email:test": "tsx src/scripts/test-digest-email.ts"
+    "email:test": "tsx src/scripts/test-digest-email.ts",
+    "import:licenses": "tsx src/scripts/import-licenses.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
