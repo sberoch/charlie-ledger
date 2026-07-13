@@ -278,6 +278,20 @@ export function DashboardPage() {
           </Panel>
 
           <Panel
+            title="Royalty Income"
+            action={<PanelLink href="/royalties">All royalties →</PanelLink>}
+          >
+            <div className="flex items-end justify-between gap-3">
+              <div className="font-heading text-3xl tracking-tight">
+                {formatMoney(data.royaltyIncome.total)}
+              </div>
+              <div className="pb-1 text-[11px] tracking-[0.04em] text-muted-foreground">
+                {data.royaltyIncome.paymentCount} payments received
+              </div>
+            </div>
+          </Panel>
+
+          <Panel
             title="Top Earning Tracks · Lifetime"
             action={<PanelLink href="/tracks">View all →</PanelLink>}
           >

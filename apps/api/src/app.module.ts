@@ -17,6 +17,7 @@ import { loggerOptions } from './common/logger/logger.config';
 import { PartiesModule } from './parties/parties.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ReportsModule } from './reports/reports.module';
+import { RoyaltiesModule } from './royalties/royalties.module';
 import { SettingsModule } from './settings/settings.module';
 import { TagsModule } from './tags/tags.module';
 import { TracksModule } from './tracks/tracks.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     LicensesModule,
     DemosModule,
     LeadsModule,
+    RoyaltiesModule,
     TracksModule,
     TagsModule,
     DashboardModule,

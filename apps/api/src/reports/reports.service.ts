@@ -7,12 +7,17 @@ import {
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
-import { invoice, lead } from '../common/database/schema';
+import { invoice, lead, royaltyPayment } from '../common/database/schema';
 
 /**
  * Sales report — CASH basis (CONTEXT.md): only PAID invoices, anchored on
  * paid_date. Deliberately diverges from lifetime sales (commitment basis);
  * the two totals will differ and that is correct.
+ *
+ * Royalties (ADR-0009) join as a SEPARATE section: royalty payments in range,
+ * anchored on their own date, grouped by Payer — never mixed into the sales
+ * groupings, so the partition math above stays intact. The summary reads
+ * Sales / Royalties / Total income.
  */
 @Injectable()
 export class ReportsService {
@@ -85,16 +90,45 @@ export class ReportsService {
       }))
       .sort((a, b) => Number(b.total) - Number(a.total));
 
+    // ── Royalties section (ADR-0009): in-range payments, by Payer ──
+    const royalties = await this.db.query.royaltyPayment.findMany({
+      where: and(
+        gte(royaltyPayment.paymentDate, query.from),
+        lte(royaltyPayment.paymentDate, query.to),
+      ),
+      with: { payer: true },
+    });
+    const royaltyGroups = new Map<string, { count: number; total: number }>();
+    for (const r of royalties) {
+      const entry = royaltyGroups.get(r.payer.name) ?? { count: 0, total: 0 };
+      entry.count += 1;
+      entry.total += Number(r.amount);
+      royaltyGroups.set(r.payer.name, entry);
+    }
+    const royaltyRows = [...royaltyGroups.entries()]
+      .map(([label, { count, total }]) => ({
+        label,
+        paymentCount: count,
+        total: total.toFixed(2),
+      }))
+      .sort((a, b) => Number(b.total) - Number(a.total));
+    const royaltyTotal = royalties.reduce((s, r) => s + Number(r.amount), 0);
+
     const invoiceTotal = paid.reduce((acc, inv) => acc + Number(inv.amount), 0);
+    const grandTotal = invoiceTotal + leadTotal;
     return {
       from: query.from,
       to: query.to,
       groupBy: query.groupBy,
       rows,
-      grandTotal: (invoiceTotal + leadTotal).toFixed(2),
+      grandTotal: grandTotal.toFixed(2),
       paidInvoiceCount: paid.length,
       includeLeads: query.includeLeads,
       leadTotal: leadTotal.toFixed(2),
+      royaltyRows,
+      royaltyTotal: royaltyTotal.toFixed(2),
+      royaltyPaymentCount: royalties.length,
+      totalIncome: (grandTotal + royaltyTotal).toFixed(2),
     };
   }
 
@@ -184,8 +218,27 @@ export class ReportsService {
       ...result.rows.map((r) =>
         [esc(r.label), String(r.invoiceCount), r.total].join(','),
       ),
-      ['TOTAL', String(result.paidInvoiceCount), result.grandTotal].join(','),
+      ['SALES TOTAL', String(result.paidInvoiceCount), result.grandTotal].join(
+        ',',
+      ),
     ];
+    // Royalties: a separate section, never blended into the sales rows above
+    // (ADR-0009). Grouped by payer; column 2 counts payments, not invoices.
+    if (result.royaltyRows.length > 0) {
+      lines.push(
+        '',
+        ['Royalties by payer', 'Payments', 'Total (USD)'].join(','),
+        ...result.royaltyRows.map((r) =>
+          [esc(r.label), String(r.paymentCount), r.total].join(','),
+        ),
+        [
+          'ROYALTIES TOTAL',
+          String(result.royaltyPaymentCount),
+          result.royaltyTotal,
+        ].join(','),
+      );
+    }
+    lines.push('', ['TOTAL INCOME', '', result.totalIncome].join(','));
     // A license can grant several media, so each fee counts toward every usage
     // row — they overlap and over-sum the grand total by design (ADR-0004).
     if (result.groupBy === 'usage_type')

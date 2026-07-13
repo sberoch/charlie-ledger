@@ -1,6 +1,7 @@
 import {
   AudioLines,
   BarChart3,
+  Coins,
   Disc3,
   FileBadge,
   LayoutDashboard,
@@ -30,6 +31,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const MORE_NAV: NavItem[] = [
   { href: "/invoices", label: "Invoices", glyph: "▭", icon: ReceiptText },
+  { href: "/royalties", label: "Royalties", glyph: "◉", icon: Coins },
   { href: "/leads", label: "Leads", glyph: "¤", icon: Wallet },
   { href: "/reports", label: "Reports", glyph: "▤", icon: BarChart3 },
   { href: "/settings", label: "Settings", glyph: "⚙", icon: Settings },

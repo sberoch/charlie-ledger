@@ -58,6 +58,14 @@ export const DemoIncomeSchema = z.object({
   convertedCount: z.number().int(),
 })
 
+export const RoyaltyIncomeSchema = z.object({
+  /** Σ all royalty payment amounts — the third top-level income figure.
+   *  Inherently cash basis: a royalty payment records money already received
+   *  (ADR-0009). Never mixed into lifetime sales or demo income. */
+  total: MoneySchema,
+  paymentCount: z.number().int(),
+})
+
 export const TopTrackSchema = z.object({
   trackId: UuidSchema,
   name: z.string(),
@@ -108,6 +116,7 @@ export const DashboardSchema = z.object({
   atRisk: AtRiskSchema,
   readyDemos: z.array(ReadyDemoSchema),
   demoIncome: DemoIncomeSchema,
+  royaltyIncome: RoyaltyIncomeSchema,
   topTracks: z.array(TopTrackSchema),
   licenseMix: z.array(MixSliceSchema),
   tagTrend: z.array(TagTrendRowSchema),

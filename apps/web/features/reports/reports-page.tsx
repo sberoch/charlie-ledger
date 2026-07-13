@@ -135,7 +135,7 @@ export function ReportsPage() {
                 <tfoot>
                   <tr className="border-t border-foreground">
                     <td className="px-4 py-3.5 text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
-                      Total · {report.paidInvoiceCount} paid invoices
+                      Sales · {report.paidInvoiceCount} paid invoices
                     </td>
                     <td />
                     <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">
@@ -161,6 +161,64 @@ export function ReportsPage() {
               personal-ledger leads (blended into the rows above). Leads are
               commitment-basis and may double-count invoiced fees.
             </p>
+          ) : null}
+
+          {/* Royalties: a separate section — received income by payer, never
+              blended into the sales groupings above (ADR-0009). */}
+          {report.royaltyRows.length > 0 ? (
+            <div className="mt-6 border bg-card">
+              <table className="w-full border-collapse text-[13.5px]">
+                <thead>
+                  <tr className="border-b border-foreground text-left text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+                    <th className="px-4 py-3 font-medium">
+                      Royalties · By Payer
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Payments
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.royaltyRows.map((row) => (
+                    <tr
+                      key={row.label}
+                      className="border-b border-border-soft last:border-0"
+                    >
+                      <td className="px-4 py-3.5 font-medium">{row.label}</td>
+                      <td className="px-4 py-3.5 text-right text-muted-foreground tabular-nums">
+                        {row.paymentCount}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-semibold tabular-nums">
+                        {formatMoney(row.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-foreground">
+                    <td className="px-4 py-3.5 text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+                      Royalties · {report.royaltyPaymentCount} payments
+                    </td>
+                    <td />
+                    <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">
+                      {formatMoney(report.royaltyTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : null}
+
+          {report.rows.length > 0 || report.royaltyRows.length > 0 ? (
+            <div className="mt-6 flex items-baseline justify-between border border-foreground bg-card px-4 py-3.5">
+              <span className="text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+                Total income · Sales + Royalties
+              </span>
+              <span className="font-heading text-xl tracking-tight">
+                {formatMoney(report.totalIncome)}
+              </span>
+            </div>
           ) : null}
 
           <div className="mt-4 flex justify-end gap-2">

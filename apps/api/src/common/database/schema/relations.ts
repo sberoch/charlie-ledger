@@ -7,6 +7,7 @@ import { lead } from './lead';
 import { license } from './license';
 import { payer } from './payer';
 import { reminder } from './reminder';
+import { royaltyPayment } from './royalty-payment';
 import { tag, trackTag } from './tag';
 import { track } from './track';
 
@@ -25,11 +26,15 @@ export const brandRelations = relations(brand, ({ one, many }) => ({
   leads: many(lead),
   // Reminders optionally linked to this brand (ADR-0007).
   reminders: many(reminder),
+  // Royalty payments optionally linked to this brand (ADR-0009).
+  royaltyPayments: many(royaltyPayment),
 }));
 
 export const payerRelations = relations(payer, ({ many }) => ({
   licenses: many(license),
   demos: many(demo),
+  // Royalty payouts sourced from this payer (ADR-0009).
+  royaltyPayments: many(royaltyPayment),
 }));
 
 export const trackRelations = relations(track, ({ many }) => ({
@@ -42,6 +47,8 @@ export const trackRelations = relations(track, ({ many }) => ({
   reminders: many(reminder),
   // Personal-ledger lines optionally attributed to this track (ADR-0005).
   leads: many(lead),
+  // Royalty payments optionally linked to this track (ADR-0009).
+  royaltyPayments: many(royaltyPayment),
 }));
 
 export const tagRelations = relations(tag, ({ many }) => ({
@@ -87,6 +94,9 @@ export const licenseRelations = relations(license, ({ one, many }) => ({
   // Reminders optionally linked to this license — e.g. the broadcast-royalty
   // reminder born on create (ADR-0007).
   reminders: many(reminder),
+  // Royalty payments optionally linked to this license — the payoff of the
+  // broadcast-royalty registration loop (ADR-0009).
+  royaltyPayments: many(royaltyPayment),
 }));
 
 export const demoRelations = relations(demo, ({ one, many }) => ({
@@ -126,6 +136,25 @@ export const leadRelations = relations(lead, ({ one }) => ({
   track: one(track, {
     fields: [lead.trackId],
     references: [track.id],
+  }),
+}));
+
+export const royaltyPaymentRelations = relations(royaltyPayment, ({ one }) => ({
+  payer: one(payer, {
+    fields: [royaltyPayment.payerId],
+    references: [payer.id],
+  }),
+  brand: one(brand, {
+    fields: [royaltyPayment.brandId],
+    references: [brand.id],
+  }),
+  track: one(track, {
+    fields: [royaltyPayment.trackId],
+    references: [track.id],
+  }),
+  license: one(license, {
+    fields: [royaltyPayment.licenseId],
+    references: [license.id],
   }),
 }));
 

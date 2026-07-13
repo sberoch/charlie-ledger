@@ -26,13 +26,15 @@ an advisory (never blocking) alert when a new License would clash with an active
 _Avoid_: Industry, vertical, market segment.
 
 **Payer**:
-The billing counterparty an Invoice is addressed to — whoever actually pays. Carries the
-bill-to block (name, address, email). May be the Brand itself or an agency acting for it —
-**direct payment by the Brand is the common case**, modelled as a separate, same-named
-Payer record (the Brand entity itself never carries billing details).
+Whoever actually pays Charlie — the billing counterparty an Invoice is addressed to, or
+the source of a [[royalty payment]]. Carries the bill-to block (name, address, email;
+royalty-only Payers like BMI simply leave it empty). May be the Brand itself or an agency
+acting for it — **direct payment by the Brand is the common case**, modelled as a separate,
+same-named Payer record (the Brand entity itself never carries billing details).
 A **Demo**'s commissioning "music house" is a Payer in that role — Music House is not a
-separate entity.
-_Avoid_: Music House (as a distinct entity), bill-to, customer.
+separate entity. PROs/unions (BMI, AFM, SAG) are Payers in the royalty role.
+_Avoid_: Music House (as a distinct entity), royalty source (as a distinct entity),
+bill-to, customer.
 
 ### Catalog & licensing
 
@@ -192,6 +194,42 @@ The agreed amount on a License or a Demo. Income rollups derive from fees, **not
 invoices: lifetime sales = Σ License fees; demo income = Σ Demo fees (tracked separately).
 _Avoid_: Price (UI label), amount, cost.
 
+### Royalties
+
+**Royalty payment**:
+A record of royalty income Charlie *received* — royalties are pursued mainly for
+`broadcast` work and paid out by PROs/unions (BMI, AFM, SAG) or occasionally a music house
+or individual passing them through — the counterparty is a **[[payer]]** (reused, not a new
+entity). Always a **flat single line**: (date, payer, freeform description, amount) —
+description **optional** (a bare BMI row is self-explanatory), amount may be zero (a
+royalty event that paid nothing is still faithful history). A
+BMI payout that arrives split Writers/Publishing is simply two rows; there are no line
+items, no structured writers-vs-publishing kind (the description carries it), and no
+quantity (only the final amount). **Fully mutable, like a [[lead]]**: edited and
+hard-deleted freely — no void, no snapshot; reports are live pulls, so a correction
+simply supersedes. Deliberately **not an [[invoice]]**: nothing is issued,
+numbered, or rendered to PDF, and there is no Unpaid/Overdue lifecycle — the money has
+already landed when the record is born. Carries optional independent links to a Brand,
+Track, and/or License (`set null` on delete, the same trio pattern as a [[lead]]) — BMI
+lumps stay bare; an AFM "Kia – Believer" payment can point at its license. The links are
+context, **not** a reporting foundation: attribution is only as complete as Charlie's
+linking, and BMI lumps are never attributable. A third income stream alongside License
+fees and Demo fees — see [[royalty income]] and the Report's royalties section.
+_Avoid_: Royalty invoice, invoice (for royalties), earnings (as an entity name).
+
+**Royalty import** (historical backfill):
+The one-off load of Charlie's 2020–2026 QuickBooks royalties export. Each source line
+mints exactly one [[royalty payment]], verbatim: $0 rows are imported, blank descriptions
+stay blank (never invented), payer names are kept as written ("Gareth Smith (Personal)"),
+and the original QuickBooks invoice numbers are **dropped entirely** — unlike the
+[[license import]], nothing here earns a private note. Payers are matched
+case-insensitively by name and created with empty bill-to blocks when missing. **No
+review round-trip** (there is no matching to get wrong) and **no links minted** — linking
+AFM rows to their licenses is Charlie's optional post-import garnish. Idempotent by the
+composite key (date, payer, description, amount): re-running skips existing rows, never
+duplicates.
+_Avoid_: Sync, migration, license import (a different, harder flow).
+
 ### Personal ledger
 
 **Lead**:
@@ -242,6 +280,14 @@ the License exists, regardless of whether its Invoice is paid. Invoice-independe
 Σ of all Demo fees, also commitment-basis. A separate top-level figure, never mixed into
 lifetime sales.
 
+**Royalty income**:
+Σ of all [[royalty payment]] amounts — the third top-level income figure on the dashboard,
+alongside Lifetime sales and Demo income, and never mixed into either. Inherently cash
+basis (a royalty payment records money already received, anchored on its date); the
+commitment-vs-cash distinction that splits Lifetime sales from the Report does not exist
+for royalties.
+_Avoid_: Royalty sales, royalty revenue.
+
 **Renewal rate**:
 Of all Licenses that have **expired** (non-perpetual, end date in the past), the share
 whose `renewed_to_id` points at a replacing License. A measure of how often expiring deals
@@ -257,14 +303,14 @@ many mood tags every combination is unique and ranks nothing — the individual 
 meaningful unit.) Tags are the platform-owned catalog vocabulary (managed from Settings).
 
 **Report (sales report)**:
-A date-range sales pull grouped by Brand / Payer / Track / Usage Type, on a **cash basis**
-— a sale only appears once its Invoice is Paid, anchored on the invoice's **paid date**.
-Deliberately diverges from Lifetime sales (commitment basis); the two totals will differ.
-The Brand / Payer / Track groupings are clean partitions (Σ rows = grand total). The
-**Usage Type** grouping is the exception: a License carries one or more Usage Types, so its
-full fee counts toward **each** of them — the usage rows **overlap and over-sum the grand
-total by design**. The grand total stays the true Σ of paid invoices; only the usage rows
-double-count. See ADR-0004.
+A date-range income pull, on a **cash basis**. Its **Sales** side is unchanged: paid
+invoices anchored on **paid date**, grouped by Brand / Payer / Track / Usage Type, where
+Brand / Payer / Track are clean partitions of the Sales total (Σ rows = grand total) and
+the **Usage Type** rows overlap and over-sum by design (see ADR-0004). Royalties join as
+a **separate section**, never mixed into those groupings: [[royalty payment]]s in range,
+anchored on their own **date**, grouped by Payer within the section. The summary shows
+three figures: **Sales** (Σ paid invoices — semantics untouched), **Royalties** (Σ royalty
+payments in range), and **Total income** (their sum).
 
 **Track export**:
 The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag, status, and

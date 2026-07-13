@@ -89,24 +89,119 @@ export class ReportPdfService {
 
     y += 10;
     doc.font('Courier').fontSize(8).fillColor(MUTED);
-    doc.text(`${result.paidInvoiceCount} PAID INVOICES`, MARGIN, y + 6, {
-      characterSpacing: 1.5,
-    });
-    doc.font('Helvetica-Bold').fontSize(16).fillColor(INK);
+    doc.text(
+      `${result.paidInvoiceCount} PAID INVOICES · SALES`,
+      MARGIN,
+      y + 4,
+      {
+        characterSpacing: 1.5,
+      },
+    );
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(INK);
     doc.text(formatMoney(result.grandTotal), MARGIN, y, {
       width,
       align: 'right',
     });
+    y += 22;
 
     if (result.includeLeads) {
       doc.font('Courier').fontSize(7).fillColor(MUTED);
       doc.text(
         `INCLUDES ${formatMoney(result.leadTotal)} FROM PERSONAL-LEDGER LEADS · MAY DOUBLE-COUNT INVOICED FEES`,
         MARGIN,
-        y + 28,
+        y,
         { characterSpacing: 1 },
       );
+      y += 16;
     }
+
+    // ── Royalties: a separate section, never blended into the sales rows
+    // above (ADR-0009). Payments received in range, grouped by payer.
+    if (result.royaltyRows.length > 0) {
+      if (y > doc.page.height - MARGIN - 140) {
+        doc.addPage();
+        y = MARGIN;
+      }
+      y += 14;
+      doc
+        .moveTo(MARGIN, y)
+        .lineTo(right, y)
+        .lineWidth(1.2)
+        .strokeColor(INK)
+        .stroke();
+      y += 14;
+      doc.font('Courier').fontSize(8).fillColor(MUTED);
+      doc.text('ROYALTIES · BY PAYER', MARGIN, y, { characterSpacing: 1.5 });
+      doc.text('PAYMENTS', MARGIN + width * 0.55, y, {
+        width: width * 0.15,
+        align: 'right',
+        characterSpacing: 1.5,
+      });
+      doc.text('TOTAL', MARGIN, y, {
+        width,
+        align: 'right',
+        characterSpacing: 1.5,
+      });
+      y += 18;
+
+      for (const row of result.royaltyRows) {
+        if (y > doc.page.height - MARGIN - 80) {
+          doc.addPage();
+          y = MARGIN;
+        }
+        doc.font('Courier').fontSize(10).fillColor(INK);
+        doc.text(row.label, MARGIN, y, { width: width * 0.5, ellipsis: true });
+        doc.text(String(row.paymentCount), MARGIN + width * 0.55, y, {
+          width: width * 0.15,
+          align: 'right',
+        });
+        doc.font('Courier-Bold');
+        doc.text(formatMoney(row.total), MARGIN, y, { width, align: 'right' });
+        y += 22;
+        doc
+          .moveTo(MARGIN, y - 6)
+          .lineTo(right, y - 6)
+          .lineWidth(0.4)
+          .strokeColor(HAIRLINE)
+          .stroke();
+      }
+
+      y += 10;
+      doc.font('Courier').fontSize(8).fillColor(MUTED);
+      doc.text(
+        `${result.royaltyPaymentCount} ROYALTY PAYMENTS`,
+        MARGIN,
+        y + 4,
+        { characterSpacing: 1.5 },
+      );
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(INK);
+      doc.text(formatMoney(result.royaltyTotal), MARGIN, y, {
+        width,
+        align: 'right',
+      });
+      y += 22;
+    }
+
+    // ── Total income: sales + royalties — what actually came in.
+    if (y > doc.page.height - MARGIN - 60) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    y += 10;
+    doc
+      .moveTo(MARGIN, y)
+      .lineTo(right, y)
+      .lineWidth(1.2)
+      .strokeColor(INK)
+      .stroke();
+    y += 12;
+    doc.font('Courier').fontSize(8).fillColor(MUTED);
+    doc.text('TOTAL INCOME', MARGIN, y + 6, { characterSpacing: 1.5 });
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(INK);
+    doc.text(formatMoney(result.totalIncome), MARGIN, y, {
+      width,
+      align: 'right',
+    });
 
     doc.end();
     return doc;

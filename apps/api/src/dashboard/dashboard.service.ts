@@ -23,22 +23,26 @@ export class DashboardService {
   async snapshot(): Promise<DashboardDto> {
     const today = todayIso();
 
-    const [licenses, demos, tracks, openReminders] = await Promise.all([
-      this.db.query.license.findMany({
-        // Tags now live in the track_tag join — pull the names through for the
-        // top-tracks chips and the tag-combination trend below.
-        with: {
-          track: { with: { trackTags: { with: { tag: true } } } },
-          brand: true,
-        },
-      }),
-      this.db.query.demo.findMany({ with: { brand: true, payer: true } }),
-      this.db.query.track.findMany(),
-      // Open reminders (ADR-0007) — completed ones drop off entirely. Overdue
-      // ones (due_on < today) are NOT filtered: unlike a derived expiration, a
-      // reminder persists past its date until done.
-      this.db.query.reminder.findMany({ where: isNull(reminder.completedAt) }),
-    ]);
+    const [licenses, demos, tracks, openReminders, royalties] =
+      await Promise.all([
+        this.db.query.license.findMany({
+          // Tags now live in the track_tag join — pull the names through for the
+          // top-tracks chips and the tag-combination trend below.
+          with: {
+            track: { with: { trackTags: { with: { tag: true } } } },
+            brand: true,
+          },
+        }),
+        this.db.query.demo.findMany({ with: { brand: true, payer: true } }),
+        this.db.query.track.findMany(),
+        // Open reminders (ADR-0007) — completed ones drop off entirely. Overdue
+        // ones (due_on < today) are NOT filtered: unlike a derived expiration, a
+        // reminder persists past its date until done.
+        this.db.query.reminder.findMany({
+          where: isNull(reminder.completedAt),
+        }),
+        this.db.query.royaltyPayment.findMany(),
+      ]);
 
     const active = licenses.filter(
       (l) => l.endDate === null || l.endDate >= today,
@@ -122,6 +126,12 @@ export class DashboardService {
       total: sum(demos.map((d) => d.fee)),
       openCount: demos.filter((d) => d.status === 'open').length,
       convertedCount: demos.filter((d) => d.status === 'converted').length,
+    };
+
+    // ── Royalty income — the third stream, inherently cash basis (ADR-0009) ──
+    const royaltyIncome = {
+      total: sum(royalties.map((r) => r.amount)),
+      paymentCount: royalties.length,
     };
 
     // ── Top earning tracks ──
@@ -231,6 +241,7 @@ export class DashboardService {
       },
       readyDemos,
       demoIncome,
+      royaltyIncome,
       topTracks,
       licenseMix,
       tagTrend,

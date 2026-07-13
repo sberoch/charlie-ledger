@@ -49,12 +49,22 @@ export const ReportRowSchema = z.object({
 })
 export type ReportRowDto = z.infer<typeof ReportRowSchema>
 
+/** One payer's royalties within the Royalties section (ADR-0009). */
+export const RoyaltyReportRowSchema = z.object({
+  /** Payer name ("BMI", "American Federation of Musicians"). */
+  label: z.string(),
+  paymentCount: z.number().int(),
+  total: MoneySchema,
+})
+export type RoyaltyReportRowDto = z.infer<typeof RoyaltyReportRowSchema>
+
 export const ReportResultSchema = z.object({
   from: IsoDateSchema,
   to: IsoDateSchema,
   groupBy: ReportGroupBySchema,
   rows: z.array(ReportRowSchema),
-  /** Signed when leads are blended in. */
+  /** The SALES total — Σ paid invoices (plus leads when blended). Royalties
+   *  never enter this figure or the rows above (ADR-0009). */
   grandTotal: SignedMoneySchema,
   paidInvoiceCount: z.number().int(),
   /** Whether personal-ledger leads were blended into the figures above. */
@@ -62,5 +72,13 @@ export const ReportResultSchema = z.object({
   /** Signed sum of the leads folded in (0 when includeLeads is off). Counted
    *  once per lead even where usage-type fan-out makes the rows over-sum. */
   leadTotal: SignedMoneySchema,
+  /** Royalties section — a SEPARATE partition, never mixed into the groupings
+   *  above: royalty payments in range, anchored on their own date, grouped by
+   *  Payer (ADR-0009). */
+  royaltyRows: z.array(RoyaltyReportRowSchema),
+  royaltyTotal: MoneySchema,
+  royaltyPaymentCount: z.number().int(),
+  /** grandTotal + royaltyTotal — what came in, total. */
+  totalIncome: SignedMoneySchema,
 })
 export type ReportResultDto = z.infer<typeof ReportResultSchema>

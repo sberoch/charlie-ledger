@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Disc3, FileBadge, Music, Plus } from "lucide-react"
+import { Coins, Disc3, FileBadge, Music, Plus } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -60,10 +60,19 @@ export function Fab() {
           <Link
             href="/tracks/new"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-2 py-4 text-sm font-semibold"
+            className="flex items-center gap-3 border-b border-border-soft px-2 py-4 text-sm font-semibold"
           >
             <Music className="size-5 text-ink-soft" strokeWidth={1.8} />
             New Track
+          </Link>
+          {/* No /new page — royalties use the pinned composer; #add focuses it. */}
+          <Link
+            href="/royalties#add"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-2 py-4 text-sm font-semibold"
+          >
+            <Coins className="size-5 text-ink-soft" strokeWidth={1.8} />
+            New Royalty Payment
           </Link>
         </div>
       </SheetContent>
