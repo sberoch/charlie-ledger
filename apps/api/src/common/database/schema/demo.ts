@@ -16,7 +16,8 @@ import { track } from './track';
 // A cue Charlie writes on commission for a music house (the Payer), pitched for
 // a Brand. Always commissioned — brand, payer, fee, and working name are all
 // required. Carries a reuse hold; surfaced on the dashboard once it lifts.
-// Forward-only. See CONTEXT.md.
+// Forward-only in the app; the 2020–2026 backfill is the one sanctioned
+// exception (ADR-0011). See CONTEXT.md.
 export const demo = pgTable(
   'demo',
   {

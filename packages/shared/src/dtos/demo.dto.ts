@@ -3,7 +3,8 @@ import { DemoStatusSchema, HoldPeriodSchema } from "../domain/enums"
 import { IsoDateSchema, MoneySchema, UuidSchema } from "../domain/primitives"
 import { SourceInvoiceSchema } from "./license.dto"
 
-// Demo — commissioned cue, forward-only, born-invoiced (ADR-0002).
+// Demo — commissioned cue, born-invoiced (ADR-0002). Forward-only in the app;
+// the 2020–2026 backfill is the one sanctioned exception (ADR-0011).
 // Hold lifting is NOT a status change; only Conversion moves it off `open`.
 
 export const DemoSchema = z.object({

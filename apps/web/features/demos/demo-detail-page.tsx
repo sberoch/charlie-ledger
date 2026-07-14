@@ -113,8 +113,8 @@ export function DemoDetailPage({ id }: { id: string }) {
             <div>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {demo.holdLifted
-                  ? "The hold has lifted — this idea is free to become a library track."
-                  : `Hold lifts ${formatDate(demo.holdEndsAt)}. Converting earlier is allowed — the hold is advisory.`}
+                  ? "The hold has lifted. This idea is free to become a library track."
+                  : `Hold lifts ${formatDate(demo.holdEndsAt)}. Converting earlier is allowed. The hold is advisory.`}
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>

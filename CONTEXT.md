@@ -89,6 +89,47 @@ links **no [[renewal]]s** — renewal chains, brand categories, and open invoice
 post-import follow-ups. Idempotent: re-running skips already-imported rows, never duplicates.
 _Avoid_: sync, migration, track import (a different, recurring flow).
 
+**WFH import** (historical backfill):
+The one-off load of Charlie's 2020–2026 QuickBooks work-for-hire ("Final") sales export — a
+sibling of the [[license import]] with a weaker source: no Brand / Track / Usage / Term /
+Exclusivity columns, only a date, a payer, a freeform description, and an amount. Every row
+still mints exactly one [[license]] plus its auto-issued Paid [[invoice]] — **kill fees,
+edit/cutdown fees, extensions, and partial payments included**: they are money earned against
+a work, so they import verbatim (Σ imported fees equals the QuickBooks export total).
+Terms default to **all media / perpetual / work-for-hire**, but a description that states its
+own term or exclusivity **wins over the default** (raw string kept in the private note, as
+ever). The Brand is curated per row by the import itself (the source names only the paying
+music house); a row whose brand can't be named confidently round-trips through the
+needs-review CSV, which for this import also carries a **brand_name** column. Track matching,
+the never-creates-Tracks rule, the needs-review round trip, batch-of-cues rows resolving to
+**one canonical (umbrella) track**, no reminder rules, no renewal links, gapless renumbering,
+born-Paid invoices, and idempotency all inherit from the [[license import]]. Bespoke
+works Charlie no longer owns are created (and typically archived) by him in the app before
+completion — never by the import.
+_Avoid_: buyout import, demo import (a kill fee here is a license, not a demo), sync.
+
+**Demo import** (historical backfill):
+The one-off load of Charlie's 2020–2026 QuickBooks demo sales export — the fourth
+backfill, and the one that reversed the [[demo]]'s original forward-only scoping
+(see ADR-0011). Every source row mints exactly one Demo plus its auto-issued,
+born-Paid [[invoice]] — multi-round rows and adjacent fees (edits, vocalist,
+conform, unitemized lumps) included, one row = one umbrella Demo, so Σ imported
+fees reconciles to the QuickBooks total. Imported Demos are born **open with hold
+none** — their holds lifted years ago, and [[conversion]] stays Charlie's decision,
+never the import's, at the accepted cost of flooding the Ready-to-reuse panel with
+history. The working name is the raw description verbatim (payment scribbles
+included); the **Brand is curated per row by the import** (the source names only
+the paying music house), with unresolvable rows round-tripping through a
+needs-review CSV carrying only a **brand_name** column — Demos reference no
+[[track]], so the license/WFH track-matching machinery has no counterpart here.
+Payers match case-insensitively and are created with empty bill-to blocks; the two
+QuickBooks spellings of one music house merge into a single [[payer]] at import
+time (payers cannot be merged later). No reminder rules, gapless renumbering,
+born-Paid invoices, and `[import:key]` idempotency inherit from the
+[[license import]] family.
+_Avoid_: sync, migration, WFH import (a sibling with a Track dimension this one
+lacks).
+
 **Tag**:
 A curated label in Charlie's catalog vocabulary (cinematic, electronic, warm). Platform-owned
 and deliberately not an enum. Case-insensitively unique. **Created** either from Settings or
@@ -124,7 +165,8 @@ A cue Charlie writes on commission for a music house, pitched for a Brand. Alway
 commissioned — has a Brand, a **Payer** (the music house), a fee, and a working name (e.g.
 "Walmart_SpringSale_v1a"), all required. Carries a **hold** (none / 3mo / 6mo) counting
 from when it was written; the dashboard surfaces it once the hold lifts so the idea can be
-reused. Forward-only — pre-platform demos are not tracked.
+reused. Originally forward-only (pre-platform demos untracked); reversed 2026-07-14 — the
+2020–2026 QuickBooks demo history backfills as first-class Demos (see [[demo import]]).
 _Avoid_: Pitch, cue, spec track.
 
 **Conversion**:
