@@ -330,6 +330,22 @@ commitment-vs-cash distinction that splits Lifetime sales from the Report does n
 for royalties.
 _Avoid_: Royalty sales, royalty revenue.
 
+**Earnings**:
+The dashboard's combined, window-scoped income figure across all three streams, on a
+**commitment basis**: Σ live [[invoice]] amounts anchored on **issue date** (License and
+Demo invoices alike, paid or not — voided excluded) + Σ [[royalty payment]] amounts on
+their own date (royalties have no invoice; the basis distinction doesn't exist for them).
+Shown for a window and its year-ago comparator: a month compares against the **full**
+same month last year; year-to-date compares against last year **cut off at the same
+date**. Rides on the paired **unpaid invoices** figure — the receivables subset of
+earnings already booked: Σ amount of all live invoices with no paid date (Overdue
+included), all-time. Deliberately distinct from the Report's cash-basis **Total income**:
+until the planned commitment-basis migration reaches the Report, the same window can
+legitimately show two different numbers. First surfaced 2026-07 in the dashboard
+overview box under the timeline.
+_Avoid_: revenue, income (for this rollup), earnings (for a royalty payment — see
+[[royalty payment]]).
+
 **Renewal rate**:
 Of all Licenses that have **expired** (non-perpetual, end date in the past), the share
 whose `renewed_to_id` points at a replacing License. A measure of how often expiring deals

@@ -34,6 +34,30 @@ export const TimelineItemSchema = z.object({
 })
 export type TimelineItemDto = z.infer<typeof TimelineItemSchema>
 
+/** Earnings (CONTEXT.md): the combined, window-scoped income figure across all
+ *  three streams on a COMMITMENT basis — Σ live invoice amounts anchored on
+ *  issue date (paid or not, voided excluded) + Σ royalty payments on their own
+ *  date. Deliberately distinct from the Report's cash-basis Total income. */
+export const EarningsSchema = z.object({
+  /** Current month, 1st → today. */
+  monthToDate: MoneySchema,
+  /** The FULL same month last year — a fixed reference figure, not a pace cut. */
+  lastYearMonth: MoneySchema,
+  /** Jan 1 → today. */
+  yearToDate: MoneySchema,
+  /** Jan 1 → same date LAST year (same-date cutoff, unlike the month figure). */
+  lastYearToDate: MoneySchema,
+  /** Receivables: live invoices with no paid date, all-time. A subset of
+   *  earnings already booked — "of what's committed, this much hasn't landed". */
+  unpaid: z.object({
+    amount: MoneySchema,
+    count: z.number().int(),
+    /** The Overdue slice of the above (due date past, still unpaid). */
+    overdueAmount: MoneySchema,
+    overdueCount: z.number().int(),
+  }),
+})
+
 export const AtRiskSchema = z.object({
   /** Σ fees of licenses expiring within 60 days. */
   amount: MoneySchema,
@@ -113,6 +137,7 @@ export type ActivityItemDto = z.infer<typeof ActivityItemSchema>
 export const DashboardSchema = z.object({
   summary: DashboardSummarySchema,
   timeline: z.array(TimelineItemSchema),
+  earnings: EarningsSchema,
   atRisk: AtRiskSchema,
   readyDemos: z.array(ReadyDemoSchema),
   demoIncome: DemoIncomeSchema,

@@ -56,6 +56,95 @@ function ReadyDemoRow({
   )
 }
 
+function EarningsStat({
+  label,
+  value,
+  muted,
+}: {
+  label: string
+  value: string
+  muted?: boolean
+}) {
+  return (
+    <div>
+      <div className="text-[11px] tracking-[0.05em] text-muted-foreground uppercase">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-1 font-heading tracking-tight",
+          muted ? "text-lg text-ink-soft" : "text-2xl"
+        )}
+      >
+        {formatMoney(value)}
+      </div>
+    </div>
+  )
+}
+
+function EarningsPanel({
+  earnings,
+}: {
+  earnings: {
+    monthToDate: string
+    lastYearMonth: string
+    yearToDate: string
+    lastYearToDate: string
+    unpaid: {
+      amount: string
+      count: number
+      overdueAmount: string
+      overdueCount: number
+    }
+  }
+}) {
+  const now = new Date()
+  const month = now.toLocaleDateString("en-US", { month: "long" })
+  const year = now.getFullYear()
+  const lastYear = year - 1
+  return (
+    // First card on desktop, but below the timeline in the mobile scroll
+    // order — DOM order serves mobile; flex order flips it on lg.
+    <Panel title="Earnings" className="lg:order-first">
+      {/* Commitment basis (CONTEXT.md "Earnings"): live invoices by issue date
+          + royalties by their date. Left column is this year; right column is
+          the year-ago comparator — the month compares against the FULL prior
+          month, YTD against the same-date cutoff. */}
+      <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+        <EarningsStat
+          label={`${month} ${year}`}
+          value={earnings.monthToDate}
+        />
+        <EarningsStat
+          label={`${month} ${lastYear}`}
+          value={earnings.lastYearMonth}
+          muted
+        />
+        <EarningsStat label={`${year} to date`} value={earnings.yearToDate} />
+        <EarningsStat
+          label={`${lastYear} to date`}
+          value={earnings.lastYearToDate}
+          muted
+        />
+      </div>
+      <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-border-soft pt-3.5">
+        <span className="text-[11px] tracking-[0.05em] text-muted-foreground uppercase">
+          Unpaid invoices · {earnings.unpaid.count}
+          {earnings.unpaid.overdueCount > 0 ? (
+            <span className="text-rust">
+              {" "}
+              · {formatMoney(earnings.unpaid.overdueAmount)} overdue
+            </span>
+          ) : null}
+        </span>
+        <span className="font-heading text-xl tracking-tight">
+          {formatMoney(earnings.unpaid.amount)}
+        </span>
+      </div>
+    </Panel>
+  )
+}
+
 function TagTrendRows({
   rows,
 }: {
@@ -181,8 +270,9 @@ export function DashboardPage() {
 
       {/* Locked mobile scroll order; reflows to the prototype's 2-col grid on lg. */}
       <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[1.4fr_1fr] lg:items-start">
-        <div className="lg:sticky lg:top-8">
+        <div className="flex flex-col gap-5 lg:sticky lg:top-8">
           <TimelinePanel timeline={data.timeline} atRisk={data.atRisk} />
+          <EarningsPanel earnings={data.earnings} />
         </div>
 
         <div className="flex flex-col gap-5">

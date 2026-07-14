@@ -23,7 +23,7 @@ export class DashboardService {
   async snapshot(): Promise<DashboardDto> {
     const today = todayIso();
 
-    const [licenses, demos, tracks, openReminders, royalties] =
+    const [licenses, demos, tracks, openReminders, royalties, liveInvoices] =
       await Promise.all([
         this.db.query.license.findMany({
           // Tags now live in the track_tag join — pull the names through for the
@@ -42,6 +42,8 @@ export class DashboardService {
           where: isNull(reminder.completedAt),
         }),
         this.db.query.royaltyPayment.findMany(),
+        // Live invoices only — voided are excluded from earnings and receivables.
+        this.db.query.invoice.findMany({ where: isNull(invoice.voidedAt) }),
       ]);
 
     const active = licenses.filter(
@@ -101,6 +103,44 @@ export class DashboardService {
       .sort((a, b) => a.daysOut - b.daysOut)
       .slice(0, 24);
 
+    // ── Earnings: commitment basis (CONTEXT.md "Earnings") ──
+    // Σ live invoice amounts by ISSUE date (paid or not) + royalty payments by
+    // their own date. The month comparator is the FULL prior-year month; the
+    // YTD comparator cuts off at the same date. Diverges from the Report's
+    // cash-basis Total income until the commitment-basis migration reaches it.
+    const year = today.slice(0, 4);
+    const lastYear = String(Number(year) - 1);
+    const earned = [
+      ...liveInvoices.map((i) => ({ date: i.issueDate, amount: i.amount })),
+      ...royalties.map((r) => ({ date: r.paymentDate, amount: r.amount })),
+    ];
+    const earnedBetween = (from: string, to: string) =>
+      sum(
+        earned
+          .filter((e) => e.date >= from && e.date <= to)
+          .map((e) => e.amount),
+      );
+    const unpaidInvoices = liveInvoices.filter((i) => i.paidDate === null);
+    const overdueInvoices = unpaidInvoices.filter((i) => i.dueDate < today);
+    const earnings = {
+      monthToDate: earnedBetween(`${today.slice(0, 7)}-01`, today),
+      lastYearMonth: earnedBetween(
+        `${lastYear}${today.slice(4, 7)}-01`,
+        `${lastYear}${today.slice(4, 7)}-31`,
+      ),
+      yearToDate: earnedBetween(`${year}-01-01`, today),
+      lastYearToDate: earnedBetween(
+        `${lastYear}-01-01`,
+        `${lastYear}${today.slice(4)}`,
+      ),
+      unpaid: {
+        amount: sum(unpaidInvoices.map((i) => i.amount)),
+        count: unpaidInvoices.length,
+        overdueAmount: sum(overdueInvoices.map((i) => i.amount)),
+        overdueCount: overdueInvoices.length,
+      },
+    };
+
     // ── Revenue at risk + renewal rate ──
     const atRiskLicenses = expiring(60);
     const expired = licenses.filter(
@@ -112,6 +152,7 @@ export class DashboardService {
     const readyDemos = demos
       .filter((d) => d.status === 'open' && d.holdEndsAt <= today)
       .sort((a, b) => (a.holdEndsAt < b.holdEndsAt ? -1 : 1))
+      .slice(0, 5)
       .map((d) => ({
         id: d.id,
         workingName: d.workingName,
@@ -233,6 +274,7 @@ export class DashboardService {
         expiringThisWeekCount: expiring(7).length,
       },
       timeline,
+      earnings,
       atRisk: {
         amount: sum(atRiskLicenses.map((l) => l.fee)),
         licenseCount: atRiskLicenses.length,
