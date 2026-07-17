@@ -11,6 +11,7 @@ import {
   deriveInvoiceStatus,
   formatInvoiceNumber,
   formatMoney,
+  licenseTitle,
   todayIso,
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
@@ -104,7 +105,7 @@ export class DigestService {
         )
         .sort((a, b) => (a.endDate! < b.endDate! ? -1 : 1))
         .map((l) => ({
-          title: `${l.track.name} × ${l.brand.name}`,
+          title: licenseTitle(l.track?.name, l.brand.name),
           meta: `${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
           fee: l.fee,
           inDays: daysBetween(today, l.endDate!),

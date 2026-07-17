@@ -19,10 +19,18 @@ Usage / Term / Exclusivity columns; the Brand and the handful of rows whose
 description states its own terms are curated in the script's `CURATED` table.
 Everything else defaults to **all media / perpetual / work for hire**.
 
+Since ADR-0013 the **track is optional**: an unambiguous catalog match (or a
+track_name completion) links it; every other brand-resolved row imports
+**trackless** and renders as "WFH × Brand". Only an unresolved brand blocks a
+row into needs-review — no placeholder or umbrella tracks are ever created.
+
 ## Prerequisites (once)
 
 - The license import (ADR-0008) has already run — catalog, payers, and most
   brands exist. The script aborts if the catalog has fewer than 100 tracks.
+- The ADR-0013 migration (`0014_stale_king_bedlam.sql`, `track_id` DROP NOT
+  NULL) is applied — deploy the current build (migrations run on API boot) or
+  run `pnpm db:migrate` against prod before importing.
 
 ## 1. Tunnel to prod postgres
 
@@ -55,21 +63,23 @@ pnpm import:wfh -- "$HOME/Downloads/Charlie Exports/WFH Sales Data 2020-2026.csv
   --out ~/foltz-wfh-out
 ```
 
-First-run expectation (verified against the real catalog): **1 imported
-("Click Click" auto-matches), 47 needs review, 0 skipped** — WFH work is
-mostly bespoke, so nearly everything round-trips through Charlie. One
-transaction — any failure rolls back everything; already-imported rows are
-always skipped (idempotent), so re-running is never destructive.
+History: the first prod run (2026-07-14, pre-ADR-0013) imported only "Click
+Click" (the lone auto-match) and parked 47 rows in review. Re-run expectation
+after ADR-0013: **43 imported (all trackless), 4 needs review (brand only),
+1 skipped (already imported)**. One transaction — any failure rolls back
+everything; already-imported rows are always skipped (idempotent), so
+re-running is never destructive.
 
 Outputs in `~/foltz-wfh-out/`:
 
-- `needs-review.csv` — send to Charlie. He fills **track_name** with the exact
-  catalog track title, and **brand_name** where it's blank (4 rows: FFing
-  Vote, Ben's Final, the A&E cue batch, the Treefort podcast cues). A
-  prefilled brand_name can be corrected — his value wins over the curated one.
-  Rows left blank simply never import. The two batch-of-cues rows resolve to
-  **one umbrella track** each (grilled 2026-07-14) — no splitting.
-- `match-audit.csv` — every imported row's brand/track/terms, for spot-checks.
+- `needs-review.csv` — send to Charlie. He fills **brand_name** where it's
+  blank (4 rows: FFing Vote, Ben's Final, the A&E cue batch, the Treefort
+  podcast cues); a prefilled brand_name can be corrected — his value wins
+  over the curated one. **track_name is optional** (ADR-0013): filled, it
+  links that catalog track at import; blank, the row imports trackless.
+  Rows with no brand simply never import.
+- `match-audit.csv` — every imported row's brand/track/terms, for spot-checks;
+  a blank `matched_track` means the row imported trackless ("WFH × Brand").
 
 ## 4. Close the tunnel
 
@@ -79,10 +89,11 @@ pkill -f "15432:172.18.0.2"   # match the IP you tunneled to
 
 ## 5. The round trip (when Charlie returns the CSV)
 
-1. If he named tracks that don't exist yet, **create them in the app first**
-   (the import never creates tracks — bespoke WFH works he no longer owns are
-   typically archived right after creation; a completion must match an
-   existing track, case-insensitively, or the row stays in review).
+1. Only **brand_name** is required. If he also named tracks, they must exist
+   in the catalog first (the import never creates tracks; a completion must
+   match an existing track, case-insensitively, or the row stays in review).
+   Track links for **already-imported** rows can't come back through the CSV —
+   idempotency skips them; he links those in the app via the license edit.
 2. Re-open the tunnel (§1–2), then re-run with his file:
 
 ```fish
@@ -101,6 +112,8 @@ completions trickle in. When done, Σ imported fees must equal **$266,337.50**.
 - Un-mark **paid** on any still-open invoice (the 03/2026 Capital One renewal
   is the only plausible candidate).
 - Categorize new brands sitting in "Uncategorized".
+- Link tracks on the reduced set of WFH works that did become catalog tracks
+  (edit the license, pick the track — optional garnish, ADR-0013).
 - Link renewal chains: "Serta (Relicense)", "Beautyrest → Beautyrest -
   Relicense 1 yr", "Speed Dial - Capital One → (Renewal)".
 - The 06/2024 UPS "Guarantee Store" row's terms include broadcast usage but

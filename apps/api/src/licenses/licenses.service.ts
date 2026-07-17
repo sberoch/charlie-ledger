@@ -16,7 +16,10 @@ import {
   deriveInvoiceStatus,
   expirationState,
   licenseInvoiceDescription,
+  licenseTitle as composeLicenseTitle,
+  licenseTrackLabel,
   todayIso,
+  TRACKLESS_REQUIRES_WFH_MESSAGE,
   type CollisionCheckQuery,
   type CollisionCheckResult,
   type CollisionWarningDto,
@@ -54,12 +57,13 @@ const RELATIONS = {
 
 type LicenseRow = NonNullable<Awaited<ReturnType<LicensesService['loadRow']>>>;
 
-/** "Empire × Subaru" — the canonical short title for a license. */
+/** "Empire × Subaru" — or "WFH × Zyrtec" for a trackless work_for_hire
+ *  license (ADR-0013) — the canonical short title for a license. */
 function licenseTitle(row: {
-  track: { name: string };
+  track: { name: string } | null;
   brand: { name: string };
 }) {
-  return `${row.track.name} × ${row.brand.name}`;
+  return composeLicenseTitle(row.track?.name, row.brand.name);
 }
 
 function licenseMeta(row: {
@@ -107,8 +111,9 @@ export class LicensesService {
         )
           return false;
         if (query.search) {
+          // licenseTrackLabel: a trackless license is findable by "WFH".
           const haystack =
-            `${row.track.name} ${row.brand.name} ${row.payer.name}`.toLowerCase();
+            `${licenseTrackLabel(row.track?.name)} ${row.brand.name} ${row.payer.name}`.toLowerCase();
           if (!haystack.includes(query.search.toLowerCase())) return false;
         }
         return true;
@@ -158,15 +163,19 @@ export class LicensesService {
     userId: string | null,
   ): Promise<LicenseDetailDto> {
     const endDate = this.resolveEndDate(input);
+    this.assertTracklessInvariant(input.trackId ?? null, input.exclusivityTier);
     const payerRow = await this.db.query.payer.findFirst({
       where: eq(payer.id, input.payerId),
     });
     if (!payerRow) throw new BadRequestException('Payer not found');
     const [trackRow, brandRow] = await Promise.all([
-      this.db.query.track.findFirst({ where: eq(track.id, input.trackId) }),
+      input.trackId
+        ? this.db.query.track.findFirst({ where: eq(track.id, input.trackId) })
+        : Promise.resolve(null),
       this.db.query.brand.findFirst({ where: eq(brand.id, input.brandId) }),
     ]);
-    if (!trackRow) throw new BadRequestException('Track not found');
+    if (input.trackId && !trackRow)
+      throw new BadRequestException('Track not found');
     if (!brandRow) throw new BadRequestException('Brand not found');
 
     const usageTypes = normalizeUsageTypes(input.usageTypes);
@@ -175,7 +184,7 @@ export class LicensesService {
       const [row] = await tx
         .insert(license)
         .values({
-          trackId: input.trackId,
+          trackId: input.trackId ?? null,
           brandId: input.brandId,
           payerId: input.payerId,
           usageTypes,
@@ -198,7 +207,7 @@ export class LicensesService {
         },
         amount: input.fee,
         description: licenseInvoiceDescription({
-          trackName: trackRow.name,
+          trackName: trackRow?.name ?? null,
           brandName: brandRow.name,
           usageTypes,
           exclusivityTier: input.exclusivityTier,
@@ -211,7 +220,7 @@ export class LicensesService {
       if (usageTypes.includes('broadcast')) {
         await tx.insert(reminder).values({
           reminderKind: 'broadcast_royalty',
-          title: `Register ${trackRow.name} × ${brandRow.name} for broadcast royalties`,
+          title: `Register ${composeLicenseTitle(trackRow?.name, brandRow.name)} for broadcast royalties`,
           description:
             'Broadcast usage. Register this license to pursue broadcast royalties.',
           dueOn: addDays(todayIso(), BROADCAST_ROYALTY_REMINDER_DAYS),
@@ -236,6 +245,9 @@ export class LicensesService {
     // Explicit endDate wins; otherwise a term or start change re-seeds it from
     // the merged values — the same rule the form applies client-side.
     const merged = { ...existing, ...input };
+    // The one write-time invariant (ADR-0013), re-checked on the merged row
+    // because a partial update can clear the track OR change the tier.
+    this.assertTracklessInvariant(merged.trackId ?? null, merged.exclusivityTier);
     let endDate =
       input.endDate !== undefined ? input.endDate : existing.endDate;
     if (
@@ -315,16 +327,23 @@ export class LicensesService {
     query: CollisionCheckQuery,
   ): Promise<CollisionCheckResult> {
     const today = todayIso();
-    const newBrand = await this.db.query.brand.findFirst({
-      where: eq(brand.id, query.brandId),
-      with: { category: true },
-    });
+    const [newBrand, trackRow] = await Promise.all([
+      this.db.query.brand.findFirst({
+        where: eq(brand.id, query.brandId),
+        with: { category: true },
+      }),
+      this.db.query.track.findFirst({ where: eq(track.id, query.trackId) }),
+    ]);
     if (!newBrand) throw new BadRequestException('Brand not found');
+    if (!trackRow) throw new BadRequestException('Track not found');
+    const trackName = trackRow.name;
 
+    // Collisions are inherently per-track: a trackless license (ADR-0013) can
+    // neither be queried here nor be found by the trackId match below.
     const active = (
       await this.db.query.license.findMany({
         where: eq(license.trackId, query.trackId),
-        with: { brand: { with: { category: true } }, track: true },
+        with: { brand: { with: { category: true } } },
       })
     ).filter(
       (row) =>
@@ -346,7 +365,7 @@ export class LicensesService {
         collisions.push(
           this.warning(
             row,
-            `${row.brand.name} holds ${EXCLUSIVITY_TIER_LABELS[row.exclusivityTier].toLowerCase()} rights on ${row.track.name} ${until}`,
+            `${row.brand.name} holds ${EXCLUSIVITY_TIER_LABELS[row.exclusivityTier].toLowerCase()} rights on ${trackName} ${until}`,
           ),
         );
       } else if (
@@ -355,14 +374,14 @@ export class LicensesService {
         collisions.push(
           this.warning(
             row,
-            `${EXCLUSIVITY_TIER_LABELS[query.exclusivityTier]} conflicts with the active ${row.brand.name} license on ${row.track.name} (${until})`,
+            `${EXCLUSIVITY_TIER_LABELS[query.exclusivityTier]} conflicts with the active ${row.brand.name} license on ${trackName} (${until})`,
           ),
         );
       } else if (row.exclusivityTier === 'category_exclusive' && sameCategory) {
         collisions.push(
           this.warning(
             row,
-            `${row.brand.name} holds category exclusivity on ${row.track.name} in ${row.brand.category.name} ${until}`,
+            `${row.brand.name} holds category exclusivity on ${trackName} in ${row.brand.category.name} ${until}`,
           ),
         );
       } else if (
@@ -372,7 +391,7 @@ export class LicensesService {
         collisions.push(
           this.warning(
             row,
-            `Cannot grant clean category exclusivity: ${row.brand.name} (${row.brand.category.name}) has an active license on ${row.track.name} ${until}`,
+            `Cannot grant clean category exclusivity: ${row.brand.name} (${row.brand.category.name}) has an active license on ${trackName} ${until}`,
           ),
         );
       }
@@ -399,7 +418,7 @@ export class LicensesService {
       rows: rows.slice(0, 5).map((r) => ({
         licenseId: r.id,
         brandName: r.brand.name,
-        trackName: r.track.name,
+        trackName: r.track?.name ?? null,
         fee: r.fee,
         startDate: r.startDate,
       })),
@@ -443,6 +462,15 @@ export class LicensesService {
       );
   }
 
+  /** Trackless ⇒ work_for_hire (ADR-0013) — applied to every write. */
+  private assertTracklessInvariant(
+    trackId: string | null,
+    exclusivityTier: LicenseDto['exclusivityTier'],
+  ) {
+    if (trackId === null && exclusivityTier !== 'work_for_hire')
+      throw new BadRequestException(TRACKLESS_REQUIRES_WFH_MESSAGE);
+  }
+
   private warning(
     row: {
       id: string;
@@ -471,7 +499,7 @@ export class LicensesService {
     return {
       id: row.id,
       trackId: row.trackId,
-      trackName: row.track.name,
+      trackName: row.track?.name ?? null,
       brandId: row.brandId,
       brandName: row.brand.name,
       categoryName: row.brand.category.name,

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { TRACKLESS_LABEL } from "../domain/derivations"
 import {
   EXCLUSIVITY_TIER_LABELS,
   formatUsageTypes,
@@ -67,7 +68,8 @@ export type VoidAndReissueInput = z.infer<typeof VoidAndReissueSchema>
 // an auto-composed line stands in. The single source of truth for both the
 // create path and the void-and-reissue path, so they never drift. See ADR-0003.
 export function licenseInvoiceDescription(input: {
-  trackName: string
+  /** Null for a trackless work_for_hire license (ADR-0013). */
+  trackName: string | null
   brandName: string
   usageTypes: UsageType[]
   exclusivityTier: ExclusivityTier
@@ -75,7 +77,9 @@ export function licenseInvoiceDescription(input: {
 }): string {
   const terms = input.terms?.trim()
   if (terms) return terms
-  return `Music license — "${input.trackName}" × ${input.brandName} · ${formatUsageTypes(input.usageTypes)} · ${EXCLUSIVITY_TIER_LABELS[input.exclusivityTier]}`
+  const trackSlot =
+    input.trackName === null ? TRACKLESS_LABEL : `"${input.trackName}"`
+  return `Music license — ${trackSlot} × ${input.brandName} · ${formatUsageTypes(input.usageTypes)} · ${EXCLUSIVITY_TIER_LABELS[input.exclusivityTier]}`
 }
 
 export function demoInvoiceDescription(input: {

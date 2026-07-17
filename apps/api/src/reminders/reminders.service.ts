@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm';
-import { todayIso } from '@workspace/shared';
+import { licenseTrackLabel, todayIso } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
 import { license, reminder } from '../common/database/schema';
@@ -70,7 +70,8 @@ export class RemindersService {
       expired.map((l) => ({
         id: l.id,
         endDate: l.endDate as string,
-        track: { name: l.track.name },
+        // "WFH" stands in for a trackless license's title slot (ADR-0013).
+        track: { name: licenseTrackLabel(l.track?.name) },
         brand: { name: l.brand.name },
       })),
       alreadyReminded,

@@ -152,7 +152,7 @@ export class ReportsService {
       license: {
         brand: { name: string };
         payer: { name: string };
-        track: { name: string };
+        track: { name: string } | null;
         usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
       demo: { brand: { name: string }; payer: { name: string } } | null;
@@ -166,7 +166,9 @@ export class ReportsService {
         case 'payer':
           return [inv.license.payer.name];
         case 'track':
-          return [inv.license.track.name];
+          // Trackless work_for_hire licenses (ADR-0013) get their own bucket,
+          // like "— Demos" below, so Σ rows still equals the grand total.
+          return [inv.license.track?.name ?? '— WFH'];
         case 'usage_type':
           // Fan-out: one label per medium the license grants.
           return inv.license.usageTypes.map((u) => USAGE_TYPE_LABELS[u]);
@@ -197,7 +199,7 @@ export class ReportsService {
       license: {
         brand: { name: string };
         payer: { name: string };
-        track: { name: string };
+        track: { name: string } | null;
         usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
       demo: { brand: { name: string }; payer: { name: string } } | null;
@@ -217,8 +219,9 @@ export class ReportsService {
         // Leads carry no payer of their own — only a license/demo provides one.
         return [l.license?.payer.name ?? l.demo?.payer.name ?? FALLBACK];
       case 'track':
-        // Demos have no track, so only a direct or license track resolves.
-        return [l.track?.name ?? l.license?.track.name ?? FALLBACK];
+        // Demos have no track, so only a direct or license track resolves —
+        // and a trackless license (ADR-0013) resolves nothing either.
+        return [l.track?.name ?? l.license?.track?.name ?? FALLBACK];
       case 'usage_type':
         if (l.license)
           return l.license.usageTypes.map((u) => USAGE_TYPE_LABELS[u]);

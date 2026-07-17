@@ -40,6 +40,26 @@ export function expirationState(
   return { urgency: "active", daysLeft }
 }
 
+// ── Trackless (work-for-hire) licenses ──────────────────────────────────────
+// A work_for_hire License may reference no Track (ADR-0013): the bespoke work
+// never entered the catalog. "WFH" stands in wherever a track name would
+// render — safe because trackless ⇒ work_for_hire is a write-time invariant.
+
+export const TRACKLESS_LABEL = "WFH"
+
+/** The track slot of a license's display identity: the track name, or "WFH". */
+export function licenseTrackLabel(trackName: string | null | undefined): string {
+  return trackName ?? TRACKLESS_LABEL
+}
+
+/** Canonical license title — `Track × Brand`, or `WFH × Brand` when trackless. */
+export function licenseTitle(
+  trackName: string | null | undefined,
+  brandName: string
+): string {
+  return `${licenseTrackLabel(trackName)} × ${brandName}`
+}
+
 // ── Invoice status ──────────────────────────────────────────────────────────
 // CONTEXT.md: derived from paid_date / due_date / voided_at, never stored.
 

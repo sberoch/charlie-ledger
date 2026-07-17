@@ -10,6 +10,7 @@ import {
   formatUsageTypes,
   expirationState,
   formatMoney,
+  licenseTrackLabel,
   todayIso,
   type ExpirationUrgency,
   type TermLength,
@@ -153,7 +154,7 @@ export function LicensesPage() {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">
-                        {license.trackName}
+                        {licenseTrackLabel(license.trackName)}
                         <span className="mx-1.5 font-normal text-muted-foreground">
                           ×
                         </span>
@@ -208,7 +209,7 @@ export function LicensesPage() {
                         URGENCY_BORDER[u]
                       )}
                     >
-                      {license.trackName}
+                      {licenseTrackLabel(license.trackName)}
                     </td>
                     <td className="px-3.5 py-4">{license.brandName}</td>
                     <td className="px-3.5 py-4">

@@ -1,7 +1,7 @@
 "use client"
 
 import { X } from "lucide-react"
-import { formatMoney } from "@workspace/shared"
+import { formatMoney, licenseTitle } from "@workspace/shared"
 import { useLicenses } from "@/features/licenses/hooks"
 import { useBrands } from "@/features/parties/hooks"
 import { useTracks } from "@/features/tracks/hooks"
@@ -95,7 +95,7 @@ export function RoyaltyLinks({
         placeholder="Link a license…"
         items={licenses.map((l) => ({
           id: l.id,
-          name: `${l.trackName} × ${l.brandName}`,
+          name: licenseTitle(l.trackName, l.brandName),
           meta: formatMoney(l.fee),
         }))}
         value={value.licenseId}

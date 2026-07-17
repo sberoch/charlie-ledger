@@ -114,6 +114,8 @@ export class TracksService {
 
     const byTrack = new Map<string, TrackLicenseHistoryItemDto[]>();
     for (const rec of records) {
+      // inArray above only matches real track ids, but the column is nullable.
+      if (!rec.trackId) continue;
       const list = byTrack.get(rec.trackId) ?? [];
       list.push({
         brandName: rec.brandName,

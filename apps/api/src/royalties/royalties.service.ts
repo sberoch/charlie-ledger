@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { desc, eq } from 'drizzle-orm';
 import {
+  licenseTitle,
   type CreateRoyaltyPaymentInput,
   type RoyaltyPaymentDto,
   type UpdateRoyaltyPaymentInput,
@@ -35,7 +36,7 @@ type RoyaltyPaymentRow = NonNullable<
   payer: { name: string };
   brand: { name: string } | null;
   track: { name: string } | null;
-  license: { track: { name: string }; brand: { name: string } } | null;
+  license: { track: { name: string } | null; brand: { name: string } } | null;
 };
 
 @Injectable()
@@ -179,7 +180,7 @@ export class RoyaltiesService {
       trackName: row.track?.name ?? null,
       licenseId: row.licenseId,
       licenseLabel: row.license
-        ? `${row.license.track.name} × ${row.license.brand.name}`
+        ? licenseTitle(row.license.track?.name, row.license.brand.name)
         : null,
       createdAt: row.createdAt.toISOString(),
     };

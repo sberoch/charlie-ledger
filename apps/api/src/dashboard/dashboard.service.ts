@@ -6,6 +6,7 @@ import {
   formatUsageTypes,
   daysBetween,
   expirationState,
+  licenseTitle,
   todayIso,
   type ActivityItemDto,
   type DashboardDto,
@@ -64,7 +65,7 @@ export class DashboardService {
           sourceId: l.id,
           date: l.endDate!,
           daysOut: daysBetween(today, l.endDate!),
-          title: `${l.track.name} × ${l.brand.name}`,
+          title: licenseTitle(l.track?.name, l.brand.name),
           meta: `${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
           fee: l.fee,
           urgency: expirationState(l.endDate, today).urgency,
@@ -181,6 +182,9 @@ export class DashboardService {
       { name: string; tags: string[]; fees: string[] }
     >();
     for (const l of licenses) {
+      // Trackless work_for_hire licenses (ADR-0013) belong to no track's
+      // earnings — an inherently per-track rollup simply skips them.
+      if (!l.trackId || !l.track) continue;
       const entry = byTrack.get(l.trackId) ?? {
         name: l.track.name,
         tags: l.track.trackTags.map((tt) => tt.tag.name),
@@ -235,6 +239,7 @@ export class DashboardService {
     };
     const byTag = new Map<string, TagRollup>();
     for (const l of licenses) {
+      if (!l.track) continue; // trackless ⇒ no tags to trend (ADR-0013)
       const fee = Number(l.fee);
       // De-dupe within a track so one license can't double-count the same tag.
       const tagNames = [...new Set(l.track.trackTags.map((tt) => tt.tag.name))];
@@ -320,7 +325,7 @@ export class DashboardService {
         kind: 'license_created' as const,
         at: l.createdAt.toISOString(),
         sourceId: l.id,
-        title: `${l.track.name} × ${l.brand.name}`,
+        title: licenseTitle(l.track?.name, l.brand.name),
         meta: `Licensed · ${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`,
         amount: l.fee,
       })),
@@ -343,7 +348,7 @@ export class DashboardService {
         at: new Date(`${inv.paidDate}T12:00:00Z`).toISOString(),
         sourceId: inv.id,
         title: inv.license
-          ? `${inv.license.track.name} × ${inv.license.brand.name}`
+          ? licenseTitle(inv.license.track?.name, inv.license.brand.name)
           : (inv.demo?.workingName ?? '—'),
         meta: `Invoice paid`,
         amount: inv.amount,

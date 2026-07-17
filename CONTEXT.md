@@ -100,12 +100,15 @@ Terms default to **all media / perpetual / work-for-hire**, but a description th
 own term or exclusivity **wins over the default** (raw string kept in the private note, as
 ever). The Brand is curated per row by the import itself (the source names only the paying
 music house); a row whose brand can't be named confidently round-trips through the
-needs-review CSV, which for this import also carries a **brand_name** column. Track matching,
-the never-creates-Tracks rule, the needs-review round trip, batch-of-cues rows resolving to
-**one canonical (umbrella) track**, no reminder rules, no renewal links, gapless renumbering,
-born-Paid invoices, and idempotency all inherit from the [[license import]]. Bespoke
-works Charlie no longer owns are created (and typically archived) by him in the app before
-completion — never by the import.
+needs-review CSV, which for this import also carries a **brand_name** column — and the brand
+is the **only** thing that blocks a row (ADR-0013): the track is optional. An unambiguous
+catalog match (or a returned track_name completion) links the [[track]]; every other row
+imports **trackless** as a "WFH × Brand" [[license]] — bespoke work that never entered the
+catalog is faithful history, not missing data. Charlie links stray tracks in the app
+afterwards; placeholder tracks are never created or archived for bespoke works, and
+batch-of-cues rows no longer resolve to umbrella tracks — they simply import trackless.
+The never-creates-Tracks rule, no reminder rules, no renewal links, gapless renumbering,
+born-Paid invoices, and idempotency all inherit from the [[license import]].
 _Avoid_: buyout import, demo import (a kill fee here is a license, not a demo), sync.
 
 **Demo import** (historical backfill):
@@ -143,12 +146,19 @@ _Avoid_: Genre, keyword, label.
 
 **License**:
 A grant of a Track's use to a Brand under specific terms (one or more **Usage Types**, term
-length, exclusivity, fee, dates) plus optional freeform **Grant terms**. References exactly
-**one Track** (required), one **Brand**, and one **Payer**.
+length, exclusivity, fee, dates) plus optional freeform **Grant terms**. References one
+**Brand** and one **Payer** (required), and **one Track — required, except a
+`work_for_hire` grant may reference none** (ADR-0013): the bespoke work was made for the
+brand and never entered the catalog. Trackless ⇒ work-for-hire is an invariant on every
+write — the tier cannot move off `work_for_hire` while no Track is linked; a Track may be
+linked (the reduced set of bespoke works that later join the catalog) or cleared by edit at
+any time. A trackless License shows as **"WFH × Brand"** wherever a title renders, counts
+toward no per-track rollup (lifetime sales, tag trend, sell signal, collision warning),
+lands in the Report's "— WFH" track bucket, and offers renewal candidates by Brand instead.
 A Track has many Licenses — its history. Lifetime sales roll up a Track's License fees.
 Its **end date** is the source of truth for expiration (seeded from start + term length,
 but editable); a `perpetual` term has no end date and never expires.
-_Avoid_: Deal, contract, sale.
+_Avoid_: Deal, contract, sale, trackless license for a non-WFH grant.
 
 **Usage Type**:
 A medium a License grants the Track for. Closed set: `broadcast`, `digital_media`,

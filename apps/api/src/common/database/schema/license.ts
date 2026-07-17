@@ -14,17 +14,20 @@ import { exclusivityTier, termLength, usageType } from './enums';
 import { payer } from './payer';
 import { track } from './track';
 
-// A grant of a Track's use to a Brand under specific terms. References exactly
-// one Track, one Brand, and one Payer (all required). A Track's lifetime sales
-// roll up its License fees on a commitment basis. See CONTEXT.md.
+// A grant of a Track's use to a Brand under specific terms. References one
+// Brand and one Payer (required) and one Track — required except for a
+// work_for_hire grant, which may reference none (the bespoke work never
+// entered the catalog; ADR-0013). The trackless ⇒ work_for_hire invariant is
+// enforced on every write in the DTO/service layer, not here. A Track's
+// lifetime sales roll up its License fees on a commitment basis. See CONTEXT.md.
 export const license = pgTable(
   'license',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     // RESTRICT: a referenced track/brand/payer cannot be hard-deleted.
-    trackId: uuid('track_id')
-      .notNull()
-      .references(() => track.id, { onDelete: 'restrict' }),
+    trackId: uuid('track_id').references(() => track.id, {
+      onDelete: 'restrict',
+    }),
     brandId: uuid('brand_id')
       .notNull()
       .references(() => brand.id, { onDelete: 'restrict' }),

@@ -45,9 +45,15 @@ import {
  * add-on fees included — ADR-0010) mints one License + one Invoice born Paid.
  * Terms default to all media / perpetual / work_for_hire; a description that
  * states its own term or exclusivity wins via the per-row CURATED table below,
- * which also carries the Brand (grilled 2026-07-14). Track matching, the
- * needs-review round trip (extended with a brand_name column), and idempotency
- * (`[import:<key>]` notes token) all follow import-licenses.ts.
+ * which also carries the Brand (grilled 2026-07-14). Idempotency
+ * (`[import:<key>]` notes token) follows import-licenses.ts.
+ *
+ * Track linking is OPTIONAL (ADR-0013, grilled 2026-07-17): WFH work is mostly
+ * bespoke and never entered the catalog, so an unambiguous matcher hit (or a
+ * track_name completion) links the track, and everything else imports with
+ * trackId null — rendered as "WFH × Brand". Only an unresolved brand (or a
+ * completion naming a nonexistent track) still round-trips through
+ * needs-review; Charlie links stray tracks in the app afterwards.
  */
 
 // ── CSV (RFC 4180: quoted fields, embedded newlines/commas, "" escapes) ─────
@@ -448,7 +454,8 @@ async function main() {
   });
   const createdBy = firstUser?.id ?? null;
 
-  // ── Match: a row imports only when BOTH brand and track are resolved ───────
+  // ── Match: a row imports once its BRAND is resolved (ADR-0013). The track
+  // is optional garnish — an unambiguous match links it, otherwise trackless.
   type Review = {
     row: SourceRow;
     reasons: string[];
@@ -457,8 +464,8 @@ async function main() {
   };
   type Match = {
     row: SourceRow;
-    trackId: string;
-    trackName: string;
+    trackId: string | null;
+    trackName: string | null;
     brandName: string;
     via: string;
   };
@@ -475,9 +482,12 @@ async function main() {
     // Brand: Charlie's completion beats the curated guess.
     const brandName = brandCompletions.get(row.key) ?? row.brandName;
 
-    // Track: completion beats the matcher.
+    // Track: completion beats the matcher; no/ambiguous match ⇒ trackless.
+    // An explicit completion naming a track we can't find is the one track
+    // problem that still blocks the row — Charlie asked for a link we can't
+    // honor, so importing trackless would silently drop his instruction.
     const reasons: string[] = [];
-    let candidates: string[] = [];
+    const candidates: string[] = [];
     let matched: { id: string; name: string; via: string } | null = null;
     const completion = trackCompletions.get(row.key);
     if (completion) {
@@ -492,24 +502,18 @@ async function main() {
       if (hits.length === 1) {
         const t = trackByLowerName.get(hits[0].toLowerCase())!;
         matched = { id: t.id, name: t.name, via: 'auto' };
-      } else {
-        candidates = hits.sort();
-        reasons.push(
-          hits.length === 0
-            ? 'no catalog track matched'
-            : 'several tracks matched — pick one',
-        );
       }
+      // 0 or several hits: import trackless (via below); link in-app later.
     }
     if (!brandName) reasons.push('brand unknown — fill brand_name');
 
-    if (matched && brandName)
+    if (brandName && reasons.length === 0)
       toImport.push({
         row,
-        trackId: matched.id,
-        trackName: matched.name,
+        trackId: matched?.id ?? null,
+        trackName: matched?.name ?? null,
         brandName,
-        via: matched.via,
+        via: matched?.via ?? 'trackless',
       });
     else review.push({ row, reasons, candidates, brandName });
   }
@@ -671,7 +675,7 @@ async function main() {
         m.row.key,
         m.row.isoDate,
         m.brandName,
-        m.trackName,
+        m.trackName ?? '', // blank = imported trackless ("WFH × Brand")
         m.via,
         m.row.overridden.length > 0
           ? m.row.overridden.join(', ')
@@ -691,6 +695,9 @@ async function main() {
   );
   console.log(
     `  via completion:   ${toImport.filter((m) => m.via === 'completion').length}`,
+  );
+  console.log(
+    `  trackless (WFH):  ${toImport.filter((m) => m.trackId === null).length}`,
   );
   console.log(`Skipped (already):  ${skippedAlready}`);
   console.log(

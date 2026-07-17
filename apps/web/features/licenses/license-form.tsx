@@ -17,6 +17,7 @@ import {
   defaultEndDate,
   formatInvoiceNumber,
   formatMoney,
+  licenseTrackLabel,
   todayIso,
   type CreateLicenseInput,
   type LicenseDetailDto,
@@ -183,9 +184,32 @@ export function LicenseForm({
             onSelect={(item) =>
               form.setValue("trackId", item.id, { shouldValidate: true })
             }
-            placeholder="Select track…"
+            placeholder={
+              values.trackId === null ? "No track (WFH)" : "Select track…"
+            }
             emptyHint="No match — add it from the Tracks screen first."
           />
+          {values.exclusivityTier === "work_for_hire" ? (
+            // Trackless is a stated choice, never a forgotten field (ADR-0013):
+            // only a work_for_hire grant may go without a catalog track.
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={values.trackId === null}
+                onChange={(e) =>
+                  form.setValue("trackId", e.target.checked ? null : "", {
+                    shouldValidate: true,
+                  })
+                }
+              />
+              No track — bespoke work for hire (shows as “WFH”)
+            </label>
+          ) : null}
+          {form.formState.errors.trackId?.message ? (
+            <p className="mt-1.5 text-[11px] text-rust">
+              {form.formState.errors.trackId.message}
+            </p>
+          ) : null}
         </Field>
 
         <Field label="Brand">
@@ -377,7 +401,7 @@ export function LicenseForm({
                 </span>
                 <div className="font-semibold">{row.brandName}</div>
                 <div className="mt-0.5 text-[11px] tracking-[0.04em] text-muted-foreground uppercase">
-                  {row.trackName} · {formatDate(row.startDate)}
+                  {licenseTrackLabel(row.trackName)} · {formatDate(row.startDate)}
                 </div>
               </div>
             ))}

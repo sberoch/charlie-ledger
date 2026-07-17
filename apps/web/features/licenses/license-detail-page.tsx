@@ -10,6 +10,8 @@ import {
   formatUsageTypes,
   formatInvoiceNumber,
   formatMoney,
+  licenseTitle,
+  licenseTrackLabel,
 } from "@workspace/shared"
 import { Button } from "@workspace/ui/components/button"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -46,8 +48,14 @@ export function LicenseDetailPage({ id }: { id: string }) {
 
   if (isPending || !license) return <Skeleton className="h-64" />
 
+  // A trackless license (ADR-0013) has no track to match on, so its renewal
+  // candidates fall back to the same brand.
   const renewalCandidates = (allLicenses ?? []).filter(
-    (l) => l.id !== id && l.trackId === license.trackId
+    (l) =>
+      l.id !== id &&
+      (license.trackId !== null
+        ? l.trackId === license.trackId
+        : l.brandId === license.brandId)
   )
 
   return (
@@ -68,12 +76,16 @@ export function LicenseDetailPage({ id }: { id: string }) {
       <div className="mb-6 flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-heading text-2xl tracking-tight md:text-3xl">
-            <Link
-              href={`/tracks/${license.trackId}`}
-              className="hover:underline"
-            >
-              {license.trackName}
-            </Link>
+            {license.trackId ? (
+              <Link
+                href={`/tracks/${license.trackId}`}
+                className="hover:underline"
+              >
+                {license.trackName}
+              </Link>
+            ) : (
+              licenseTrackLabel(license.trackName)
+            )}
             <span className="mx-2 text-muted-foreground">×</span>
             {license.brandName}
           </h1>
@@ -169,7 +181,7 @@ export function LicenseDetailPage({ id }: { id: string }) {
                 href={`/licenses/${license.renewedTo.id}`}
                 className="font-semibold underline decoration-border underline-offset-3 hover:decoration-foreground"
               >
-                {license.trackName} × {license.renewedTo.brandName}
+                {licenseTitle(license.trackName, license.renewedTo.brandName)}
               </Link>
               <span className="block pt-1 text-xs text-muted-foreground">
                 starts {formatDate(license.renewedTo.startDate)}
@@ -180,7 +192,7 @@ export function LicenseDetailPage({ id }: { id: string }) {
               <EntityCombobox
                 items={renewalCandidates.map((l) => ({
                   id: l.id,
-                  name: `${l.trackName} × ${l.brandName}`,
+                  name: licenseTitle(l.trackName, l.brandName),
                   meta: l.startDate,
                 }))}
                 value={null}

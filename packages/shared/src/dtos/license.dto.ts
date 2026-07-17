@@ -21,8 +21,9 @@ export const SourceInvoiceSchema = z.object({
 
 export const LicenseSchema = z.object({
   id: UuidSchema,
-  trackId: UuidSchema,
-  trackName: z.string(),
+  /** Null only for a trackless work_for_hire license (ADR-0013). */
+  trackId: UuidSchema.nullable(),
+  trackName: z.string().nullable(),
   brandId: UuidSchema,
   brandName: z.string(),
   categoryName: z.string(),
@@ -70,8 +71,13 @@ export const LicenseDetailSchema = LicenseSchema.extend({
 })
 export type LicenseDetailDto = z.infer<typeof LicenseDetailSchema>
 
-export const CreateLicenseSchema = z.object({
-  trackId: UuidSchema,
+/** The one conditional invariant on a License write (ADR-0013). */
+export const TRACKLESS_REQUIRES_WFH_MESSAGE =
+  "Pick a track, or keep exclusivity at Work For Hire to go without one"
+
+const CreateLicenseBaseSchema = z.object({
+  /** Omitted/null → trackless; legal only when exclusivityTier is work_for_hire. */
+  trackId: UuidSchema.nullish(),
   brandId: UuidSchema,
   payerId: UuidSchema,
   /** At least one medium required; normalised (deduped/sorted) server-side. */
@@ -86,9 +92,24 @@ export const CreateLicenseSchema = z.object({
   /** Optional grant scope printed on the invoice; empty → auto-composed line. */
   terms: z.string().trim().max(2000).nullish(),
 })
+
+// Trackless ⇒ work_for_hire, enforced here for create. Update is a partial
+// (trackId omitted ≠ cleared), so the service re-checks the merged row —
+// the same invariant, applied to every write either way.
+export const CreateLicenseSchema = CreateLicenseBaseSchema.superRefine(
+  (val, ctx) => {
+    if (!val.trackId && val.exclusivityTier !== "work_for_hire") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["trackId"],
+        message: TRACKLESS_REQUIRES_WFH_MESSAGE,
+      })
+    }
+  }
+)
 export type CreateLicenseInput = z.infer<typeof CreateLicenseSchema>
 
-export const UpdateLicenseSchema = CreateLicenseSchema.partial()
+export const UpdateLicenseSchema = CreateLicenseBaseSchema.partial()
 export type UpdateLicenseInput = z.infer<typeof UpdateLicenseSchema>
 
 export const LicenseListQuerySchema = z.object({
@@ -153,7 +174,7 @@ export const SimilarLicensesResultSchema = z.object({
     z.object({
       licenseId: UuidSchema,
       brandName: z.string(),
-      trackName: z.string(),
+      trackName: z.string().nullable(),
       fee: MoneySchema,
       startDate: IsoDateSchema,
     })

@@ -9,6 +9,7 @@ import {
   deriveInvoiceStatus,
   demoInvoiceDescription,
   licenseInvoiceDescription,
+  licenseTitle,
   todayIso,
   type InvoiceDto,
   type InvoiceListQuery,
@@ -107,7 +108,7 @@ export class InvoicesService {
           payer: row.license.payer,
           fee: row.license.fee,
           description: licenseInvoiceDescription({
-            trackName: row.license.track.name,
+            trackName: row.license.track?.name ?? null,
             brandName: row.license.brand.name,
             usageTypes: row.license.usageTypes,
             exclusivityTier: row.license.exclusivityTier,
@@ -159,7 +160,7 @@ export class InvoicesService {
       ? {
           kind: 'license' as const,
           id: row.license.id,
-          title: `${row.license.track.name} × ${row.license.brand.name}`,
+          title: licenseTitle(row.license.track?.name, row.license.brand.name),
         }
       : {
           kind: 'demo' as const,
