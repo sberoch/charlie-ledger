@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, gte, isNotNull, isNull, lte } from 'drizzle-orm';
 import {
+  REPORT_BASIS_LABELS,
+  REPORT_BASIS_NOTES,
   USAGE_TYPE_LABELS,
   type ReportQuery,
   type ReportResultDto,
@@ -10,13 +12,15 @@ import { DrizzleProvider } from '../common/database/drizzle.module';
 import { invoice, lead, royaltyPayment } from '../common/database/schema';
 
 /**
- * Sales report — CASH basis (CONTEXT.md): only PAID invoices, anchored on
- * paid_date. Deliberately diverges from lifetime sales (commitment basis);
- * the two totals will differ and that is correct.
+ * Sales report — dual basis, COMMITMENT by default (ADR-0012): live invoices
+ * anchored on issue_date, paid or not, voided excluded — the same anchor as
+ * the dashboard Earnings, so the two agree per window. The CASH basis keeps
+ * the money-landed pull: only PAID invoices, anchored on paid_date.
  *
  * Royalties (ADR-0009) join as a SEPARATE section: royalty payments in range,
  * anchored on their own date, grouped by Payer — never mixed into the sales
- * groupings, so the partition math above stays intact. The summary reads
+ * groupings, so the partition math above stays intact. Basis doesn't touch
+ * them (a royalty payment IS money received). The summary reads
  * Sales / Royalties / Total income.
  */
 @Injectable()
@@ -24,13 +28,20 @@ export class ReportsService {
   constructor(@Inject(DrizzleProvider) private readonly db: Db) {}
 
   async sales(query: ReportQuery): Promise<ReportResultDto> {
-    const paid = await this.db.query.invoice.findMany({
-      where: and(
-        isNotNull(invoice.paidDate),
-        isNull(invoice.voidedAt),
-        gte(invoice.paidDate, query.from),
-        lte(invoice.paidDate, query.to),
-      ),
+    const invoices = await this.db.query.invoice.findMany({
+      where:
+        query.basis === 'commitment'
+          ? and(
+              isNull(invoice.voidedAt),
+              gte(invoice.issueDate, query.from),
+              lte(invoice.issueDate, query.to),
+            )
+          : and(
+              isNotNull(invoice.paidDate),
+              isNull(invoice.voidedAt),
+              gte(invoice.paidDate, query.from),
+              lte(invoice.paidDate, query.to),
+            ),
       with: {
         license: { with: { brand: true, payer: true, track: true } },
         demo: { with: { brand: true, payer: true } },
@@ -38,7 +49,7 @@ export class ReportsService {
     });
 
     const groups = new Map<string, { count: number; total: number }>();
-    for (const inv of paid) {
+    for (const inv of invoices) {
       // Usually one label per invoice. The exception is a multi-usage license
       // under the `usage_type` grouping: its full fee fans out to EACH medium,
       // so the usage rows overlap and over-sum the grand total (ADR-0004).
@@ -114,15 +125,19 @@ export class ReportsService {
       .sort((a, b) => Number(b.total) - Number(a.total));
     const royaltyTotal = royalties.reduce((s, r) => s + Number(r.amount), 0);
 
-    const invoiceTotal = paid.reduce((acc, inv) => acc + Number(inv.amount), 0);
+    const invoiceTotal = invoices.reduce(
+      (acc, inv) => acc + Number(inv.amount),
+      0,
+    );
     const grandTotal = invoiceTotal + leadTotal;
     return {
       from: query.from,
       to: query.to,
       groupBy: query.groupBy,
+      basis: query.basis,
       rows,
       grandTotal: grandTotal.toFixed(2),
-      paidInvoiceCount: paid.length,
+      invoiceCount: invoices.length,
       includeLeads: query.includeLeads,
       leadTotal: leadTotal.toFixed(2),
       royaltyRows,
@@ -214,13 +229,15 @@ export class ReportsService {
   toCsv(result: ReportResultDto): string {
     const esc = (v: string) => `"${v.replaceAll('"', '""')}"`;
     const lines = [
-      ['Group', 'Paid invoices', 'Total (USD)'].join(','),
+      [
+        'Group',
+        result.basis === 'commitment' ? 'Invoices' : 'Paid invoices',
+        'Total (USD)',
+      ].join(','),
       ...result.rows.map((r) =>
         [esc(r.label), String(r.invoiceCount), r.total].join(','),
       ),
-      ['SALES TOTAL', String(result.paidInvoiceCount), result.grandTotal].join(
-        ',',
-      ),
+      ['SALES TOTAL', String(result.invoiceCount), result.grandTotal].join(','),
     ];
     // Royalties: a separate section, never blended into the sales rows above
     // (ADR-0009). Grouped by payer; column 2 counts payments, not invoices.
@@ -239,6 +256,14 @@ export class ReportsService {
       );
     }
     lines.push('', ['TOTAL INCOME', '', result.totalIncome].join(','));
+    // An export travels without its UI, so it must say which basis it was
+    // pulled on — the same figure can legitimately differ between the two.
+    lines.push(
+      '',
+      esc(
+        `Basis: ${REPORT_BASIS_LABELS[result.basis].toLowerCase()} — ${REPORT_BASIS_NOTES[result.basis]}`,
+      ),
+    );
     // A license can grant several media, so each fee counts toward every usage
     // row — they overlap and over-sum the grand total by design (ADR-0004).
     if (result.groupBy === 'usage_type')

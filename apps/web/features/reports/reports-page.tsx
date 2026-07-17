@@ -4,11 +4,14 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
+  REPORT_BASIS_LABELS,
+  REPORT_BASIS_NOTES,
   REPORT_GROUP_BY_LABELS,
   ReportResultSchema,
   addMonths,
   formatMoney,
   todayIso,
+  type ReportBasis,
   type ReportGroupBy,
 } from "@workspace/shared"
 import { Button } from "@workspace/ui/components/button"
@@ -23,9 +26,10 @@ export function ReportsPage() {
   const [from, setFrom] = useState(addMonths(todayIso(), -12))
   const [to, setTo] = useState(todayIso())
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("brand")
+  const [basis, setBasis] = useState<ReportBasis>("commitment")
   const [includeLeads, setIncludeLeads] = useState(false)
 
-  const query = { from, to, groupBy, includeLeads }
+  const query = { from, to, groupBy, basis, includeLeads }
   const enabled = Boolean(from && to)
   const { data: report, isPending } = useQuery({
     queryKey: ["reports", query],
@@ -35,8 +39,8 @@ export function ReportsPage() {
 
   const exportAs = (ext: "csv" | "pdf") =>
     downloadFile(
-      `/reports/sales.${ext}?from=${from}&to=${to}&groupBy=${groupBy}&includeLeads=${includeLeads}`,
-      `sales_${from}_${to}_by_${groupBy}.${ext}`
+      `/reports/sales.${ext}?from=${from}&to=${to}&groupBy=${groupBy}&basis=${basis}&includeLeads=${includeLeads}`,
+      `sales_${from}_${to}_by_${groupBy}_${basis}.${ext}`
     ).catch((e) => toast.error(e.message))
 
   return (
@@ -79,6 +83,23 @@ export function ReportsPage() {
             value={groupBy}
             onChange={setGroupBy}
           />
+        </div>
+        <div className="mt-4">
+          <label className="mb-2 block text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+            Basis
+          </label>
+          <SegControl
+            options={(
+              Object.entries(REPORT_BASIS_LABELS) as Array<
+                [ReportBasis, string]
+              >
+            ).map(([value, label]) => ({ value, label }))}
+            value={basis}
+            onChange={setBasis}
+          />
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {REPORT_BASIS_NOTES[basis]}
+          </p>
         </div>
         <label className="mt-4 flex cursor-pointer items-start gap-2.5">
           <Checkbox
@@ -126,7 +147,9 @@ export function ReportsPage() {
                       colSpan={3}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                     >
-                      No paid invoices in this range.
+                      {report.basis === "cash"
+                        ? "No paid invoices in this range."
+                        : "No invoices issued in this range."}
                     </td>
                   </tr>
                 ) : null}
@@ -135,7 +158,8 @@ export function ReportsPage() {
                 <tfoot>
                   <tr className="border-t border-foreground">
                     <td className="px-4 py-3.5 text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
-                      Sales · {report.paidInvoiceCount} paid invoices
+                      Sales · {report.invoiceCount}{" "}
+                      {report.basis === "cash" ? "paid invoices" : "invoices"}
                     </td>
                     <td />
                     <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">

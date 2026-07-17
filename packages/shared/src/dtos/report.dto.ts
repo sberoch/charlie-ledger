@@ -1,14 +1,19 @@
 import { z } from "zod"
 import { IsoDateSchema, MoneySchema, SignedMoneySchema } from "../domain/primitives"
 
-// Sales report — CASH basis: a sale appears once its invoice is Paid, anchored
-// on paid_date. Deliberately diverges from lifetime sales (commitment basis).
+// Sales report — dual basis, COMMITMENT by default: live invoices anchored on
+// issue_date, paid or not (voided excluded) — the same anchor as the dashboard
+// Earnings, so the two agree per window. Flipping to CASH restores the
+// money-landed pull (paid invoices anchored on paid_date) — kept for tax time.
+// See ADR-0012. Royalties are unaffected: money received, on its own date,
+// under either basis.
 //
-// The `includeLeads` flag punches a deliberate hole in that wall: when on, the
-// atomic unit becomes "money event = paid invoice OR personal-ledger lead".
-// Leads (signed, often fictional splits) blend into the rows and grand total by
-// Charlie's choice — accepting the double-count — so the money-bearing fields
-// below become SIGNED. Default off keeps the pure cash-basis report. See ADR-0005.
+// The `includeLeads` flag punches a deliberate hole in either wall: when on,
+// the atomic unit becomes "money event = in-range invoice OR personal-ledger
+// lead". Leads (signed, often fictional splits) blend into the rows and grand
+// total by Charlie's choice — accepting the double-count — so the money-bearing
+// fields below become SIGNED. Default off keeps the pure invoice report. See
+// ADR-0005.
 
 export const ReportGroupBySchema = z.enum([
   "brand",
@@ -25,12 +30,29 @@ export const REPORT_GROUP_BY_LABELS: Record<ReportGroupBy, string> = {
   usage_type: "Usage Type",
 }
 
+export const ReportBasisSchema = z.enum(["commitment", "cash"])
+export type ReportBasis = z.infer<typeof ReportBasisSchema>
+
+export const REPORT_BASIS_LABELS: Record<ReportBasis, string> = {
+  commitment: "Commitment",
+  cash: "Cash",
+}
+
+/** One-line meaning of each basis, shown under the picker and on exports. */
+export const REPORT_BASIS_NOTES: Record<ReportBasis, string> = {
+  commitment:
+    "Invoices count from their issue date, paid or not (voided excluded).",
+  cash: "Paid invoices only, counted on the date they were paid.",
+}
+
 export const ReportQuerySchema = z.object({
   from: IsoDateSchema,
   to: IsoDateSchema,
   groupBy: ReportGroupBySchema,
+  /** Which invoices count, and on which date (see header). Default commitment. */
+  basis: ReportBasisSchema.default("commitment"),
   /** Blend personal-ledger leads into the rows + grand total. Arrives as a
-   *  query-string "true"/"false"; default off (pure cash-basis report). */
+   *  query-string "true"/"false"; default off (pure invoice report). */
   includeLeads: z
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((v) => v === true || v === "true")
@@ -42,7 +64,8 @@ export const ReportRowSchema = z.object({
   /** Group label ("A24", "Broadcast", …). Demo invoices group under track/usage
    *  as "— Demos"; blended leads that don't fit the grouping fall to "— Leads". */
   label: z.string(),
-  /** PAID INVOICES only — leads add money to a row but never to this count. */
+  /** Invoices on the chosen basis (all live under commitment, paid-only under
+   *  cash) — leads add money to a row but never to this count. */
   invoiceCount: z.number().int(),
   /** Signed: a net-negative lead can pull a row below zero. */
   total: SignedMoneySchema,
@@ -62,11 +85,15 @@ export const ReportResultSchema = z.object({
   from: IsoDateSchema,
   to: IsoDateSchema,
   groupBy: ReportGroupBySchema,
+  basis: ReportBasisSchema,
   rows: z.array(ReportRowSchema),
-  /** The SALES total — Σ paid invoices (plus leads when blended). Royalties
-   *  never enter this figure or the rows above (ADR-0009). */
+  /** The SALES total — Σ in-range invoices on the chosen basis (plus leads
+   *  when blended). Royalties never enter this figure or the rows above
+   *  (ADR-0009). */
   grandTotal: SignedMoneySchema,
-  paidInvoiceCount: z.number().int(),
+  /** Invoices behind the sales rows: every live invoice in range under
+   *  commitment, paid-only under cash. */
+  invoiceCount: z.number().int(),
   /** Whether personal-ledger leads were blended into the figures above. */
   includeLeads: z.boolean(),
   /** Signed sum of the leads folded in (0 when includeLeads is off). Counted
@@ -78,7 +105,7 @@ export const ReportResultSchema = z.object({
   royaltyRows: z.array(RoyaltyReportRowSchema),
   royaltyTotal: MoneySchema,
   royaltyPaymentCount: z.number().int(),
-  /** grandTotal + royaltyTotal — what came in, total. */
+  /** grandTotal + royaltyTotal — total income on the chosen basis. */
   totalIncome: SignedMoneySchema,
 })
 export type ReportResultDto = z.infer<typeof ReportResultSchema>

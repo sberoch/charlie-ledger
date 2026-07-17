@@ -26,7 +26,7 @@ export class ReportsController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="sales_${query.from}_${query.to}_by_${query.groupBy}.csv"`,
+      `attachment; filename="sales_${query.from}_${query.to}_by_${query.groupBy}_${query.basis}.csv"`,
     );
     res.send(this.reports.toCsv(result));
   }
@@ -40,7 +40,7 @@ export class ReportsController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="sales_${query.from}_${query.to}_by_${query.groupBy}.pdf"`,
+      `attachment; filename="sales_${query.from}_${query.to}_by_${query.groupBy}_${query.basis}.pdf"`,
     );
     this.pdf.render(result).pipe(res);
   }

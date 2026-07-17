@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import {
+  REPORT_BASIS_LABELS,
+  REPORT_BASIS_NOTES,
   REPORT_GROUP_BY_LABELS,
   formatMoney,
   type ReportResultDto,
@@ -32,7 +34,7 @@ export class ReportPdfService {
     doc.text(COMPANY_NAME.toUpperCase(), MARGIN, MARGIN);
     doc.font('Courier').fontSize(9).fillColor(MUTED);
     doc.text(
-      `SALES REPORT · BY ${REPORT_GROUP_BY_LABELS[result.groupBy].toUpperCase()}`,
+      `SALES REPORT · ${REPORT_BASIS_LABELS[result.basis].toUpperCase()} BASIS · BY ${REPORT_GROUP_BY_LABELS[result.groupBy].toUpperCase()}`,
       MARGIN,
       doc.y + 4,
       { characterSpacing: 1.5 },
@@ -90,7 +92,7 @@ export class ReportPdfService {
     y += 10;
     doc.font('Courier').fontSize(8).fillColor(MUTED);
     doc.text(
-      `${result.paidInvoiceCount} PAID INVOICES · SALES`,
+      `${result.invoiceCount} ${result.basis === 'cash' ? 'PAID ' : ''}INVOICES · SALES`,
       MARGIN,
       y + 4,
       {
@@ -182,8 +184,9 @@ export class ReportPdfService {
       y += 22;
     }
 
-    // ── Total income: sales + royalties — what actually came in.
-    if (y > doc.page.height - MARGIN - 60) {
+    // ── Total income: sales + royalties, on the chosen basis. The reserve
+    // covers the total block plus the basis footnote below it.
+    if (y > doc.page.height - MARGIN - 90) {
       doc.addPage();
       y = MARGIN;
     }
@@ -201,6 +204,13 @@ export class ReportPdfService {
     doc.text(formatMoney(result.totalIncome), MARGIN, y, {
       width,
       align: 'right',
+    });
+    y += 30;
+
+    // The exported page travels without its UI — spell the basis out.
+    doc.font('Courier').fontSize(7).fillColor(MUTED);
+    doc.text(REPORT_BASIS_NOTES[result.basis].toUpperCase(), MARGIN, y, {
+      characterSpacing: 1,
     });
 
     doc.end();

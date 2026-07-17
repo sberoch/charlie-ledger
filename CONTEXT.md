@@ -339,10 +339,10 @@ Shown for a window and its year-ago comparator: a month compares against the **f
 same month last year; year-to-date compares against last year **cut off at the same
 date**. Rides on the paired **unpaid invoices** figure — the receivables subset of
 earnings already booked: Σ amount of all live invoices with no paid date (Overdue
-included), all-time. Deliberately distinct from the Report's cash-basis **Total income**:
-until the planned commitment-basis migration reaches the Report, the same window can
-legitimately show two different numbers. First surfaced 2026-07 in the dashboard
-overview box under the timeline.
+included), all-time. Agrees with the Report's default (commitment) **Total income**
+per window since the Report's basis migration (ADR-0012); the Report's **cash**
+toggle remains the one view where the same window legitimately shows a different
+number. First surfaced 2026-07 in the dashboard overview box under the timeline.
 _Avoid_: revenue, income (for this rollup), earnings (for a royalty payment — see
 [[royalty payment]]).
 
@@ -361,14 +361,18 @@ many mood tags every combination is unique and ranks nothing — the individual 
 meaningful unit.) Tags are the platform-owned catalog vocabulary (managed from Settings).
 
 **Report (sales report)**:
-A date-range income pull, on a **cash basis**. Its **Sales** side is unchanged: paid
-invoices anchored on **paid date**, grouped by Brand / Payer / Track / Usage Type, where
-Brand / Payer / Track are clean partitions of the Sales total (Σ rows = grand total) and
-the **Usage Type** rows overlap and over-sum by design (see ADR-0004). Royalties join as
-a **separate section**, never mixed into those groupings: [[royalty payment]]s in range,
-anchored on their own **date**, grouped by Payer within the section. The summary shows
-three figures: **Sales** (Σ paid invoices — semantics untouched), **Royalties** (Σ royalty
-payments in range), and **Total income** (their sum).
+A date-range income pull, **dual-basis with commitment as the default** (ADR-0012).
+Commitment counts **live invoices anchored on issue date, paid or not** (voided
+excluded) — the same anchor as [[earnings]], so the dashboard and the Report agree per
+window. The **cash** toggle preserves the money-landed pull — paid invoices anchored on
+**paid date** — kept for tax time. Either way the Sales side groups by Brand / Payer /
+Track / Usage Type, where Brand / Payer / Track are clean partitions of the Sales total
+(Σ rows = grand total) and the **Usage Type** rows overlap and over-sum by design (see
+ADR-0004). Royalties join as a **separate section**, never mixed into those groupings:
+[[royalty payment]]s in range, anchored on their own **date**, grouped by Payer within
+the section — the basis doesn't touch them (a royalty payment *is* money received). The
+summary shows three figures: **Sales**, **Royalties**, and **Total income** (their sum);
+every export (CSV / PDF) states the basis it was pulled on.
 
 **Track export**:
 The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag, status, and
@@ -406,7 +410,8 @@ _Avoid_: Download, dump, backup.
 > Broadcast, 1-year term.
 > **Dev:** So lifetime sales on "Midnight Drive" goes up by that fee now, before A24 pays?
 > **Charlie:** Yes. Lifetime sales is what I've committed, not what's landed. The Reports
-> tab is the cash side — that fee only shows there once I mark the invoice paid.
+> tab counts it the same way now — and when I want just what's landed, say at tax time,
+> I flip the report to cash.
 > **Dev:** And if A24 renews next year?
 > **Charlie:** New License. I point the old one's "Renewed →" at it so I can follow the
 > chain, but it's a fresh record.
