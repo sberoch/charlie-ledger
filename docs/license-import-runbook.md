@@ -87,10 +87,47 @@ Everything already imported is skipped; only resolved rows import. A fresh
 `needs-review.csv` is emitted with whatever still isn't resolvable — repeat as
 completions trickle in.
 
+**After every round trip, re-run the updates script (§6)** — newly imported
+rows are born Paid and their new brands born Uncategorized; the re-run fixes
+both from Charlie's CSV.
+
+## 6. Charlie's status + category updates (`updated-licenses.csv`)
+
+Charlie's June 2026 re-export (`updated-licenses.csv`) adds two columns the
+original sheet lacked — `Status` (Paid/Unpaid) and `Category` (per-brand) — in
+a **different layout** (Num renamed "Invoice Number", Status/Category
+inserted). It contains **no track completions**; it does not advance the
+needs-review round trip. `apply-license-updates.ts` applies it on top of
+whatever has imported so far (tunnel + `DATABASE_URL` as in §1–2):
+
+```fish
+cd apps/api
+pnpm apply:license-updates -- "$HOME/Downloads/Charlie Exports/updated-licenses.csv"
+```
+
+- **Status**: clear-only — CSV-Unpaid rows get their live invoice's paid date
+  cleared (they then show Unpaid/Overdue on their true Net-30 dates). The
+  reverse direction is only ever *reported* (prod-unpaid + CSV-Paid means
+  someone un-marked it in-app after the export — the CSV must not stomp that).
+- **Category**: only lifts brands out of "Uncategorized". In-app categorizations
+  that differ from the CSV are reported, never overwritten. Brands not in prod
+  yet are skipped (they appear when their rows import — hence the re-run rule).
+- Conflicting per-row categories are settled by the `CONFLICT_RULINGS` map in
+  the script (grilled 2026-07-17: Unknown → Sizzle Reel, Intermix → Fashion,
+  Apple TV → Film; "Finace" folds into Finance). An unruled conflict aborts.
+- Idempotent and all-or-nothing; safe to re-run any time. First prod run
+  (2026-07-17): **8 invoices cleared (~$55.4k now open), 2 brands
+  recategorized** — Charlie had already categorized nearly everything in-app
+  by then, so most category rows landed as "already correct" or in the
+  (expected, long) divergence report; his in-app vocabulary differs from the
+  CSV's ("Entertainment & Streaming" vs "Film") and in-app wins. Only Simple
+  #1606 still awaits its needs-review round trip + re-run.
+
 ## Post-import follow-ups (Charlie, in the app)
 
-- Un-mark **paid** on the few still-open 2026 invoices (invoice → clear paid date).
-- Categorize the ~100 brands sitting in "Uncategorized".
+- ~~Un-mark **paid** on the still-open 2026 invoices~~ — handled by §6.
+- ~~Categorize the brands sitting in "Uncategorized"~~ — license brands handled
+  by §6; brands created by the WFH/demo imports are still his, in-app.
 - Link renewal chains (license → Renewed →) — the dashboard renewal rate reads
   near-zero until he does.
 - The 04/2026 CG "World's on Fire" broadcast license got **no** royalty reminder

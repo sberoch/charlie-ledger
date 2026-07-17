@@ -27,7 +27,8 @@
     "import:licenses": "tsx src/scripts/import-licenses.ts",
     "import:royalties": "tsx src/scripts/import-royalties.ts",
     "import:wfh": "tsx src/scripts/import-wfh.ts",
-    "import:demos": "tsx src/scripts/import-demos.ts"
+    "import:demos": "tsx src/scripts/import-demos.ts",
+    "apply:license-updates": "tsx src/scripts/apply-license-updates.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
