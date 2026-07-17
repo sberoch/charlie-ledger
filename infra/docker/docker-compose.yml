@@ -48,6 +48,10 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL}
       WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Optional by design: without the key the digest cron builds + logs but
+      # skips sending (see DigestService), so no :?err guard here.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      DIGEST_FROM: ${DIGEST_FROM:-}
     ports:
       - "${API_BIND_IP:-127.0.0.1}:${API_PORT:-5000}:5000"
     healthcheck:
