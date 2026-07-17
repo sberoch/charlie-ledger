@@ -42,10 +42,9 @@ describe("CreateLicenseSchema — trackless ⇒ work_for_hire (ADR-0013)", () =>
     })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0].message).toBe(
-        TRACKLESS_REQUIRES_WFH_MESSAGE
-      )
-      expect(result.error.issues[0].path).toEqual(["trackId"])
+      const issue = result.error.issues[0]
+      expect(issue?.message).toBe(TRACKLESS_REQUIRES_WFH_MESSAGE)
+      expect(issue?.path).toEqual(["trackId"])
     }
   })
 
