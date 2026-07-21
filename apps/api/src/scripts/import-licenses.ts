@@ -37,14 +37,27 @@ import {
  * Historical license import — the one-off 2020–2026 QuickBooks backfill.
  * See docs/license-import-implementation-spec.md and ADR-0008.
  *
- *   pnpm import:licenses -- <source.csv> [--completions <needs-review.csv>] [--out <dir>]
+ *   pnpm import:licenses -- <source.csv> [--completions <needs-review.csv>]
+ *       [--create-missing-tracks] [--out <dir>]
  *
  * Each source row becomes one License + one Invoice (born Paid on its
  * transaction date). The matcher links rows to EXISTING catalog tracks and
  * only acts when unambiguous; everything else lands in <out>/needs-review.csv,
  * which Charlie fills in (track_name column) and hands back via --completions.
- * Tracks are never created here. Idempotent: every imported license carries an
- * `[import:<key>]` token in its private notes; re-runs skip those rows.
+ *
+ * A completions row_key may appear on SEVERAL rows: a bulk invoice split into
+ * one row per track, each carrying its share of the invoice in `amount`
+ * (decided 2026-07-20). Each such row becomes its own License + Invoice, and
+ * the group must sum exactly to the source row's amount or the run aborts.
+ *
+ * By default a completion must name an existing track (Charlie creates missing
+ * ones in-app). With --create-missing-tracks, unknown names are created as
+ * name-only stub tracks instead (reported; Charlie enriches in-app). The "?"
+ * placeholder track is excluded from auto-matching — its regex would hit any
+ * question mark in track text.
+ *
+ * Idempotent: every imported license carries an `[import:<key>]` token in its
+ * private notes; re-runs skip those rows.
  */
 
 // ── CSV (RFC 4180: quoted fields, embedded newlines/commas, "" escapes) ─────
@@ -275,6 +288,7 @@ async function main() {
   const completionsPath = args.includes('--completions')
     ? args[args.indexOf('--completions') + 1]
     : null;
+  const createMissingTracks = args.includes('--create-missing-tracks');
   const outDir = resolve(
     args.includes('--out')
       ? args[args.indexOf('--out') + 1]
@@ -359,18 +373,31 @@ async function main() {
     throw new Error('row-key collision in source — aborting');
 
   // ── Completions (Charlie's filled needs-review CSV) ────────────────────────
-  const completions = new Map<string, string>();
+  // One row per (row_key, track): bulk invoices arrive split across several
+  // rows sharing a row_key, each with its share of the invoice in `amount`.
+  type Completion = { name: string; amount: string };
+  const completions = new Map<string, Completion[]>();
   if (completionsPath) {
     const crows = parseCsv(readFileSync(resolve(completionsPath), 'utf8'));
     const chead = crows[0].map((h) => h.trim().toLowerCase());
     const kIdx = chead.indexOf('row_key');
     const tIdx = chead.indexOf('track_name');
-    if (kIdx < 0 || tIdx < 0)
-      throw new Error('completions CSV needs row_key and track_name columns');
-    for (const r of crows.slice(1)) {
+    const aIdx = chead.indexOf('amount');
+    if (kIdx < 0 || tIdx < 0 || aIdx < 0)
+      throw new Error(
+        'completions CSV needs row_key, track_name and amount columns',
+      );
+    for (const [i, r] of crows.slice(1).entries()) {
       const k = r[kIdx]?.trim();
       const name = r[tIdx]?.trim();
-      if (k && name) completions.set(k, name);
+      if (!k || !name) continue;
+      const group = completions.get(k) ?? [];
+      if (group.some((c) => c.name.toLowerCase() === name.toLowerCase()))
+        throw new Error(
+          `completions row ${i + 2}: duplicate track "${name}" for row_key ${k}`,
+        );
+      group.push({ name, amount: parseAmount(r[aIdx] ?? '') });
+      completions.set(k, group);
     }
   }
 
@@ -388,7 +415,11 @@ async function main() {
   const trackByLowerName = new Map(
     trackRows.map((t) => [t.name.toLowerCase(), t]),
   );
-  const catalog = buildCatalog(trackRows.map((t) => t.name));
+  // "?" is the placeholder for tracks Charlie can't identify — completion-only,
+  // never auto-matched (its regex would hit any "?" in track text).
+  const catalog = buildCatalog(
+    trackRows.map((t) => t.name).filter((n) => n !== '?'),
+  );
 
   const importedKeys = new Set<string>();
   const noteRows = await db
@@ -409,41 +440,77 @@ async function main() {
   type Review = { row: SourceRow; reason: string; candidates: string[] };
   type Match = {
     row: SourceRow;
-    trackId: string;
+    trackId: string | null; // null ⇒ stub track created in-transaction
     trackName: string;
+    fee: string;
+    groupSize: number;
+    subIndex: number;
     via: string;
   };
   const toImport: Match[] = [];
   const review: Review[] = [];
+  const tracksToCreate = new Map<string, string>(); // lower → exact name
+  const sumErrors: string[] = [];
   let skippedAlready = 0;
+
+  const cents = (amount: string) => Math.round(Number(amount) * 100);
 
   for (const row of source) {
     if (importedKeys.has(row.key)) {
       skippedAlready++;
       continue;
     }
-    const completion = completions.get(row.key);
-    if (completion) {
-      const t = trackByLowerName.get(completion.toLowerCase());
-      if (t)
-        toImport.push({
-          row,
-          trackId: t.id,
-          trackName: t.name,
-          via: 'completion',
-        });
-      else
+    const group = completions.get(row.key);
+    if (group) {
+      const sum = group.reduce((s, c) => s + cents(c.amount), 0);
+      if (sum !== cents(row.amount)) {
+        sumErrors.push(
+          `${row.key} (#${row.num} ${row.brandName}): completions sum ` +
+            `${(sum / 100).toFixed(2)} ≠ source amount ${row.amount}`,
+        );
+        continue;
+      }
+      const missing = group.filter(
+        (c) => !trackByLowerName.has(c.name.toLowerCase()),
+      );
+      if (missing.length > 0 && !createMissingTracks) {
         review.push({
           row,
-          reason: `completion "${completion}" not in catalog — create the track in the app, then re-run`,
+          reason:
+            `completion(s) ${missing.map((c) => `"${c.name}"`).join(', ')} not in ` +
+            'catalog — create the track in the app (or re-run with ' +
+            '--create-missing-tracks), then re-run',
           candidates: [],
         });
+        continue;
+      }
+      for (const c of missing) tracksToCreate.set(c.name.toLowerCase(), c.name);
+      group.forEach((c, subIndex) => {
+        const t = trackByLowerName.get(c.name.toLowerCase());
+        toImport.push({
+          row,
+          trackId: t?.id ?? null,
+          trackName: t?.name ?? c.name,
+          fee: c.amount,
+          groupSize: group.length,
+          subIndex,
+          via: 'completion',
+        });
+      });
       continue;
     }
     const hits = matchTracks(row.trackText, catalog);
     if (hits.length === 1) {
       const t = trackByLowerName.get(hits[0].toLowerCase())!;
-      toImport.push({ row, trackId: t.id, trackName: t.name, via: 'auto' });
+      toImport.push({
+        row,
+        trackId: t.id,
+        trackName: t.name,
+        fee: row.amount,
+        groupSize: 1,
+        subIndex: 0,
+        via: 'auto',
+      });
     } else {
       review.push({
         row,
@@ -456,10 +523,21 @@ async function main() {
     }
   }
 
+  if (sumErrors.length > 0) {
+    console.error(
+      `ABORT — ${sumErrors.length} completion group(s) don't sum to their ` +
+        'source amount, nothing imported:',
+    );
+    for (const e of sumErrors) console.error('  ' + e);
+    process.exit(1);
+  }
+
   // ── Import (one transaction; chronological so invoice numbers follow) ─────
   toImport.sort(
     (a, b) =>
-      a.row.isoDate.localeCompare(b.row.isoDate) || a.row.index - b.row.index,
+      a.row.isoDate.localeCompare(b.row.isoDate) ||
+      a.row.index - b.row.index ||
+      a.subIndex - b.subIndex,
   );
   const issuer = new InvoiceIssuerService();
   let createdPayers = 0;
@@ -467,6 +545,16 @@ async function main() {
 
   await db.transaction(async (tx) => {
     const lower = (s: string) => s.toLowerCase();
+
+    // Stub tracks for completion names not in the catalog (opt-in via
+    // --create-missing-tracks): name-only, no tags — Charlie enriches in-app.
+    if (tracksToCreate.size > 0) {
+      const created = await tx
+        .insert(track)
+        .values([...tracksToCreate.values()].map((name) => ({ name })))
+        .returning({ id: track.id, name: track.name });
+      for (const t of created) trackByLowerName.set(lower(t.name), t);
+    }
     const payersByName = new Map(
       (await tx.select().from(payer)).map((p) => [lower(p.name), p.id]),
     );
@@ -522,18 +610,22 @@ async function main() {
       const notes =
         `Imported from License Data CSV · original invoice #${row.num || '—'}` +
         ` · original term "${row.termRaw}" · original usage "${row.usageRaw}"` +
+        (m.groupSize > 1
+          ? ` · bulk license ${m.subIndex + 1}/${m.groupSize} — $${m.fee} of invoice total $${row.amount}`
+          : '') +
         ` · [import:${row.key}]`;
 
+      const trackId = m.trackId ?? trackByLowerName.get(lower(m.trackName))!.id;
       const [lic] = await tx
         .insert(license)
         .values({
-          trackId: m.trackId,
+          trackId,
           brandId,
           payerId,
           usageTypes: row.usageTypes,
           exclusivityTier: row.exclusivityTier,
           termLength: row.termLength,
-          fee: row.amount,
+          fee: m.fee,
           startDate: row.isoDate,
           endDate: defaultEndDate(row.isoDate, row.termLength),
           notes,
@@ -548,7 +640,7 @@ async function main() {
       const inv = await issuer.issue(tx, {
         source: { kind: 'license', id: lic.id },
         billTo: { name: row.payerName, email: null, address: null },
-        amount: row.amount,
+        amount: m.fee,
         description: licenseInvoiceDescription({
           trackName: m.trackName,
           brandName: row.brandName,
@@ -601,13 +693,22 @@ async function main() {
   writeFileSync(resolve(outDir, 'needs-review.csv'), reviewCsv + '\n');
 
   const auditCsv = [
-    csvLine(['row_key', 'date', 'brand', 'matched_track', 'via', 'track_text']),
+    csvLine([
+      'row_key',
+      'date',
+      'brand',
+      'matched_track',
+      'fee',
+      'via',
+      'track_text',
+    ]),
     ...toImport.map((m) =>
       csvLine([
         m.row.key,
         m.row.isoDate,
         m.row.brandName,
         m.trackName,
+        m.fee,
         m.via,
         m.row.trackText,
       ]),
@@ -615,9 +716,7 @@ async function main() {
   ].join('\n');
   writeFileSync(resolve(outDir, 'match-audit.csv'), auditCsv + '\n');
 
-  const total = toImport
-    .reduce((s, m) => s + Number(m.row.amount), 0)
-    .toFixed(2);
+  const total = toImport.reduce((s, m) => s + Number(m.fee), 0).toFixed(2);
   console.log(`Source rows:        ${source.length}`);
   console.log(
     `Imported:           ${toImport.length} licenses + invoices ($${total})`,
@@ -625,6 +724,17 @@ async function main() {
   console.log(
     `  via completion:   ${toImport.filter((m) => m.via === 'completion').length}`,
   );
+  const splitKeys = new Set(
+    toImport.filter((m) => m.groupSize > 1).map((m) => m.row.key),
+  );
+  if (splitKeys.size > 0)
+    console.log(
+      `  bulk splits:      ${splitKeys.size} invoices → ${toImport.filter((m) => m.groupSize > 1).length} licenses`,
+    );
+  if (tracksToCreate.size > 0)
+    console.log(
+      `Tracks created:     ${tracksToCreate.size} — ${[...tracksToCreate.values()].sort().join(', ')}`,
+    );
   console.log(`Skipped (already):  ${skippedAlready}`);
   console.log(
     `Needs review:       ${review.length} → ${resolve(outDir, 'needs-review.csv')}`,
