@@ -4,7 +4,12 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { formatInvoiceNumber, formatMoney, todayIso } from "@workspace/shared"
+import {
+  defaultDueDate,
+  formatInvoiceNumber,
+  formatMoney,
+  todayIso,
+} from "@workspace/shared"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +22,14 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Panel } from "@/components/panel"
@@ -27,8 +40,100 @@ import {
   useClearPaid,
   useInvoice,
   useMarkPaid,
+  useUpdateInvoiceDates,
   useVoidAndReissue,
 } from "./hooks"
+
+/** Issue + due edited together (ADR-0014): changing issue RE-SUGGESTS due =
+ *  issue + 30 in the form — visible before saving, never silently applied —
+ *  so a backdate can't strand a due date or flip Overdue unseen. */
+function EditDatesDialog({
+  invoiceId,
+  issueDate,
+  dueDate,
+}: {
+  invoiceId: string
+  issueDate: string
+  dueDate: string
+}) {
+  const updateDates = useUpdateInvoiceDates(invoiceId)
+  const [open, setOpen] = useState(false)
+  const [issue, setIssue] = useState(issueDate)
+  const [due, setDue] = useState(dueDate)
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) {
+          setIssue(issueDate)
+          setDue(dueDate)
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          Edit dates
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit invoice dates</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="mb-2 block text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+              Issue date
+            </label>
+            <Input
+              type="date"
+              value={issue}
+              onChange={(e) => {
+                setIssue(e.target.value)
+                if (e.target.value) setDue(defaultDueDate(e.target.value))
+              }}
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Anchors commitment-basis reports and the earnings window.
+            </p>
+          </div>
+          <div>
+            <label className="mb-2 block text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+              Due date
+            </label>
+            <Input
+              type="date"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Re-suggested as issue + 30 when the issue date changes — adjust
+              before saving if you had a custom term.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            disabled={updateDates.isPending || !issue || !due}
+            onClick={() =>
+              updateDates
+                .mutateAsync({ issueDate: issue, dueDate: due })
+                .then(() => {
+                  toast.success("Invoice dates updated")
+                  setOpen(false)
+                })
+                .catch((e) => toast.error(e.message))
+            }
+          >
+            Save dates
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function InvoiceDetailPage({ id }: { id: string }) {
   const router = useRouter()
@@ -93,6 +198,15 @@ export function InvoiceDetailPage({ id }: { id: string }) {
             issued {formatDate(invoice.issueDate)} · due{" "}
             {formatDate(invoice.dueDate)}
           </div>
+          {invoice.status !== "voided" ? (
+            <div className="mt-2.5">
+              <EditDatesDialog
+                invoiceId={invoice.id}
+                issueDate={invoice.issueDate}
+                dueDate={invoice.dueDate}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

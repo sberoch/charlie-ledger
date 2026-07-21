@@ -32,7 +32,7 @@ export const DemoSchema = z.object({
 })
 export type DemoDto = z.infer<typeof DemoSchema>
 
-export const CreateDemoSchema = z.object({
+const CreateDemoBaseSchema = z.object({
   brandId: UuidSchema,
   payerId: UuidSchema,
   fee: MoneySchema,
@@ -45,9 +45,15 @@ export const CreateDemoSchema = z.object({
   /** Optional grant scope printed on the invoice; empty → auto-composed line. */
   terms: z.string().trim().max(2000).nullish(),
 })
+
+export const CreateDemoSchema = CreateDemoBaseSchema.extend({
+  /** The born invoice's issue date — omitted → today (ADR-0014). Create-only:
+   *  after birth, dates change on the invoice itself, never via the demo. */
+  issueDate: IsoDateSchema.optional(),
+})
 export type CreateDemoInput = z.infer<typeof CreateDemoSchema>
 
-export const UpdateDemoSchema = CreateDemoSchema.partial()
+export const UpdateDemoSchema = CreateDemoBaseSchema.partial()
 export type UpdateDemoInput = z.infer<typeof UpdateDemoSchema>
 
 /** Conversion is a standalone decision — no Track required (it usually doesn't

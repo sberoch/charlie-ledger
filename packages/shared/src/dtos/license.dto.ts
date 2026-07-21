@@ -96,7 +96,11 @@ const CreateLicenseBaseSchema = z.object({
 // Trackless ⇒ work_for_hire, enforced here for create. Update is a partial
 // (trackId omitted ≠ cleared), so the service re-checks the merged row —
 // the same invariant, applied to every write either way.
-export const CreateLicenseSchema = CreateLicenseBaseSchema.superRefine(
+export const CreateLicenseSchema = CreateLicenseBaseSchema.extend({
+  /** The born invoice's issue date — omitted → today (ADR-0014). Create-only:
+   *  after birth, dates change on the invoice itself, never via the license. */
+  issueDate: IsoDateSchema.optional(),
+}).superRefine(
   (val, ctx) => {
     if (!val.trackId && val.exclusivityTier !== "work_for_hire") {
       ctx.addIssue({

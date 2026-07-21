@@ -20,6 +20,12 @@ describe("ReportQuerySchema", () => {
     ).toBe(false)
   })
 
+  it("accepts the invoice grouping (the month-dialog partition)", () => {
+    expect(ReportQuerySchema.parse({ ...BASE, groupBy: "invoice" }).groupBy).toBe(
+      "invoice"
+    )
+  })
+
   it("still coerces the query-string includeLeads flag", () => {
     expect(
       ReportQuerySchema.parse({ ...BASE, includeLeads: "true" }).includeLeads

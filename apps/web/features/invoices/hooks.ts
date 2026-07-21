@@ -6,6 +6,7 @@ import {
   InvoiceSchema,
   type InvoiceDto,
   type InvoiceListQuery,
+  type UpdateInvoiceDatesInput,
   type VoidAndReissueInput,
 } from "@workspace/shared"
 import { api } from "@/lib/api"
@@ -53,6 +54,20 @@ export function useClearPaid(id: string) {
     mutationFn: () =>
       api<InvoiceDto>(`/invoices/${id}/paid`, {
         method: "DELETE",
+        schema: InvoiceSchema,
+      }),
+    onSuccess: invalidate,
+  })
+}
+
+/** Dates are lifecycle fields (ADR-0014) — the snapshot has no edit path. */
+export function useUpdateInvoiceDates(id: string) {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (input: UpdateInvoiceDatesInput) =>
+      api<InvoiceDto>(`/invoices/${id}/dates`, {
+        method: "PATCH",
+        body: input,
         schema: InvoiceSchema,
       }),
     onSuccess: invalidate,

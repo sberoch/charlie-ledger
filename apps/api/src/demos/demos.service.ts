@@ -125,6 +125,7 @@ export class DemosService {
           workingName: input.workingName,
           terms: input.terms,
         }),
+        issueDate: input.issueDate,
         userId,
       });
       return row;

@@ -22,6 +22,41 @@ const base: ReportResultDto = {
   totalIncome: '5000.00',
 };
 
+describe('ReportsService.groupLabels — invoice partition', () => {
+  it('labels a license invoice by number + source title', () => {
+    const labels = service['groupLabels'](
+      {
+        number: 142,
+        license: {
+          brand: { name: 'Subaru' },
+          payer: { name: 'Empire Agency' },
+          track: { name: 'Empire' },
+          usageTypes: ['broadcast'],
+        },
+        demo: null,
+      },
+      'invoice',
+    );
+    expect(labels).toEqual(['INV-0142 · Empire × Subaru']);
+  });
+
+  it('labels a demo invoice by number + working name', () => {
+    const labels = service['groupLabels'](
+      {
+        number: 7,
+        license: null,
+        demo: {
+          brand: { name: 'Walmart' },
+          payer: { name: 'Squeak E. Clean' },
+          workingName: 'Walmart_SpringSale_v1a',
+        },
+      },
+      'invoice',
+    );
+    expect(labels).toEqual(['INV-0007 · Walmart_SpringSale_v1a']);
+  });
+});
+
 describe('ReportsService.toCsv', () => {
   it('heads the count column "Invoices" and states the basis under commitment', () => {
     const csv = service.toCsv(base);

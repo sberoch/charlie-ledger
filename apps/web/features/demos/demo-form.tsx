@@ -63,7 +63,12 @@ export function DemoForm({ existing }: { existing?: DemoDto }) {
           notes: existing.notes,
           terms: existing.terms,
         }
-      : { writtenAt: todayIso(), fee: "", workingName: "" },
+      : {
+          writtenAt: todayIso(),
+          issueDate: todayIso(),
+          fee: "",
+          workingName: "",
+        },
   })
   const values = form.watch()
 
@@ -195,6 +200,21 @@ export function DemoForm({ existing }: { existing?: DemoDto }) {
           />
         </Field>
       </div>
+
+      {!existing ? (
+        <Field
+          label="Invoice Issue Date"
+          hint="The born invoice's date — backdate when logging an older demo (due defaults to issue + 30). Editable later on the invoice itself."
+        >
+          <Input
+            type="date"
+            value={values.issueDate ?? ""}
+            onChange={(e) =>
+              form.setValue("issueDate", e.target.value || undefined)
+            }
+          />
+        </Field>
+      ) : null}
 
       <Field label="Invoice terms">
         <Textarea

@@ -213,6 +213,7 @@ export class LicensesService {
           exclusivityTier: input.exclusivityTier,
           terms: input.terms,
         }),
+        issueDate: input.issueDate,
         userId,
       });
       // Broadcast-royalty rule (ADR-0007) — same transaction as the license +
@@ -247,7 +248,10 @@ export class LicensesService {
     const merged = { ...existing, ...input };
     // The one write-time invariant (ADR-0013), re-checked on the merged row
     // because a partial update can clear the track OR change the tier.
-    this.assertTracklessInvariant(merged.trackId ?? null, merged.exclusivityTier);
+    this.assertTracklessInvariant(
+      merged.trackId ?? null,
+      merged.exclusivityTier,
+    );
     let endDate =
       input.endDate !== undefined ? input.endDate : existing.endDate;
     if (

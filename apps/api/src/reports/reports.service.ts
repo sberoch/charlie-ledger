@@ -4,6 +4,8 @@ import {
   REPORT_BASIS_LABELS,
   REPORT_BASIS_NOTES,
   USAGE_TYPE_LABELS,
+  formatInvoiceNumber,
+  licenseTitle,
   type ReportQuery,
   type ReportResultDto,
 } from '@workspace/shared';
@@ -149,16 +151,30 @@ export class ReportsService {
 
   private groupLabels(
     inv: {
+      number: number;
       license: {
         brand: { name: string };
         payer: { name: string };
         track: { name: string } | null;
         usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
-      demo: { brand: { name: string }; payer: { name: string } } | null;
+      demo: {
+        brand: { name: string };
+        payer: { name: string };
+        workingName: string;
+      } | null;
     },
     groupBy: ReportQuery['groupBy'],
   ): string[] {
+    // The finest partition: one row per invoice, labeled by number + source.
+    // Feeds the dashboard's month-income dialog ("what invoices comprise
+    // this figure") without a second computation path.
+    if (groupBy === 'invoice') {
+      const title = inv.license
+        ? licenseTitle(inv.license.track?.name, inv.license.brand.name)
+        : (inv.demo?.workingName ?? '—');
+      return [`${formatInvoiceNumber(inv.number)} · ${title}`];
+    }
     if (inv.license) {
       switch (groupBy) {
         case 'brand':
@@ -208,6 +224,10 @@ export class ReportsService {
   ): string[] {
     const FALLBACK = '— Leads';
     switch (groupBy) {
+      case 'invoice':
+        // A lead is not an invoice — under the invoice partition the whole
+        // overlay pools into the catch-all row.
+        return [FALLBACK];
       case 'brand':
         return [
           l.brand?.name ??

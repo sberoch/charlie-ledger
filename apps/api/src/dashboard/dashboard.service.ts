@@ -10,7 +10,7 @@ import {
   todayIso,
   type ActivityItemDto,
   type DashboardDto,
-  type TagTrendRowDto,
+  type TagShareDto,
   type TimelineItemDto,
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
@@ -164,16 +164,43 @@ export class DashboardService {
       }));
 
     // ── Demo income (separate, top-level — never mixed into lifetime sales) ──
+    // Anchored on the demo's OWN writtenAt, not invoice issue date: the box
+    // reads as Charlie's output pace ("how many cues, worth how much"), so it
+    // can differ by a hair from the Report's demo dollars for the same window.
+    const ytdFrom = `${year}-01-01`;
+    const lastYtdFrom = `${lastYear}-01-01`;
+    const lastYtdTo = `${lastYear}${today.slice(4)}`;
+    const demosYtd = demos.filter(
+      (d) => d.writtenAt >= ytdFrom && d.writtenAt <= today,
+    );
+    const demosLastYtd = demos.filter(
+      (d) => d.writtenAt >= lastYtdFrom && d.writtenAt <= lastYtdTo,
+    );
     const demoIncome = {
-      total: sum(demos.map((d) => d.fee)),
+      ytdCount: demosYtd.length,
+      ytdIncome: sum(demosYtd.map((d) => d.fee)),
+      lastYearToDateCount: demosLastYtd.length,
+      lastYearToDateIncome: sum(demosLastYtd.map((d) => d.fee)),
       openCount: demos.filter((d) => d.status === 'open').length,
       convertedCount: demos.filter((d) => d.status === 'converted').length,
     };
 
     // ── Royalty income — the third stream, inherently cash basis (ADR-0009) ──
+    // Same paced comparator as the demo box; lumpy PRO distributions mean a
+    // mid-quarter dip vs last year is usually timing, not lost income.
+    const royaltiesYtd = royalties.filter(
+      (r) => r.paymentDate >= ytdFrom && r.paymentDate <= today,
+    );
     const royaltyIncome = {
-      total: sum(royalties.map((r) => r.amount)),
-      paymentCount: royalties.length,
+      ytdTotal: sum(royaltiesYtd.map((r) => r.amount)),
+      ytdPaymentCount: royaltiesYtd.length,
+      lastYearToDateTotal: sum(
+        royalties
+          .filter(
+            (r) => r.paymentDate >= lastYtdFrom && r.paymentDate <= lastYtdTo,
+          )
+          .map((r) => r.amount),
+      ),
     };
 
     // ── Top earning tracks ──
@@ -227,50 +254,90 @@ export class DashboardService {
       }))
       .sort((a, b) => b.share - a.share);
 
-    // ── Tag trend: per individual tag → Σ fees, ranked. A license fee counts
-    // toward EACH of its track's tags, so the rows overlap and over-sum the
-    // grand total BY DESIGN — same as the Report's Usage Type rows. With tracks
-    // carrying many tags, the individual tag (not the combination) is the
-    // meaningful unit of "what styles sell". See CONTEXT.md "Tag trend".
-    type TagRollup = {
-      tag: string;
-      fees: number[];
-      brands: Map<string, number>;
-    };
-    const byTag = new Map<string, TagRollup>();
-    for (const l of licenses) {
-      if (!l.track) continue; // trackless ⇒ no tags to trend (ADR-0013)
-      const fee = Number(l.fee);
-      // De-dupe within a track so one license can't double-count the same tag.
-      const tagNames = [...new Set(l.track.trackTags.map((tt) => tt.tag.name))];
-      for (const tagName of tagNames) {
-        const entry: TagRollup = byTag.get(tagName) ?? {
-          tag: tagName,
-          fees: [],
-          brands: new Map(),
-        };
-        entry.fees.push(fee);
-        entry.brands.set(
-          l.brand.name,
-          (entry.brands.get(l.brand.name) ?? 0) + fee,
-        );
-        byTag.set(tagName, entry);
+    // ── Tag trend: each tag's SHARE of the tag-weighted fee sum, windowed
+    // YTD beside last year cut off at the same date. A license fee counts
+    // toward EACH of its track's tags, so the amounts overlap and over-sum BY
+    // DESIGN — shares are therefore normalized against the tag-weighted sum
+    // (the same move as the usage donut, ADR-0004), so slices partition to
+    // 100%. Windowed on the live invoice's issue date like every commitment
+    // figure. See CONTEXT.md "Tag trend".
+    const liveIssueDateByLicense = new Map(
+      liveInvoices
+        .filter((i) => i.licenseId !== null)
+        .map((i) => [i.licenseId!, i.issueDate]),
+    );
+    const TAG_SLICES = 7;
+    const tagWindow = (from: string, to: string): TagShareDto[] => {
+      type TagRollup = {
+        tag: string;
+        fees: number[];
+        brands: Map<string, number>;
+      };
+      const byTag = new Map<string, TagRollup>();
+      for (const l of licenses) {
+        if (!l.track) continue; // trackless ⇒ no tags to trend (ADR-0013)
+        const issued = liveIssueDateByLicense.get(l.id);
+        if (!issued || issued < from || issued > to) continue;
+        const fee = Number(l.fee);
+        // De-dupe within a track so one license can't double-count a tag.
+        const tagNames = [
+          ...new Set(l.track.trackTags.map((tt) => tt.tag.name)),
+        ];
+        for (const tagName of tagNames) {
+          const entry: TagRollup = byTag.get(tagName) ?? {
+            tag: tagName,
+            fees: [],
+            brands: new Map(),
+          };
+          entry.fees.push(fee);
+          entry.brands.set(
+            l.brand.name,
+            (entry.brands.get(l.brand.name) ?? 0) + fee,
+          );
+          byTag.set(tagName, entry);
+        }
       }
-    }
-    const tagTrend: TagTrendRowDto[] = [...byTag.values()]
-      .map((c) => ({
-        tag: c.tag,
-        total: c.fees.reduce((a, b) => a + b, 0).toFixed(2),
-        licenseCount: c.fees.length,
-        brands: [...c.brands.entries()]
-          .map(([brandName, amount]) => ({
-            brandName,
-            amount: amount.toFixed(2),
-          }))
-          .sort((a, b) => Number(b.amount) - Number(a.amount)),
-      }))
-      .sort((a, b) => Number(b.total) - Number(a.total))
-      .slice(0, 8);
+      const ranked = [...byTag.values()]
+        .map((c) => ({
+          tag: c.tag,
+          amount: c.fees.reduce((a, b) => a + b, 0),
+          licenseCount: c.fees.length,
+          brands: [...c.brands.entries()]
+            .map(([brandName, amount]) => ({
+              brandName,
+              amount: amount.toFixed(2),
+            }))
+            .sort((a, b) => Number(b.amount) - Number(a.amount)),
+        }))
+        .sort((a, b) => b.amount - a.amount);
+      const weightTotal = ranked.reduce((acc, r) => acc + r.amount, 0);
+      const top = ranked.slice(0, TAG_SLICES);
+      const tail = ranked.slice(TAG_SLICES);
+      const slices = top.map((r) => ({
+        tag: r.tag,
+        amount: r.amount.toFixed(2),
+        share: weightTotal > 0 ? r.amount / weightTotal : 0,
+        licenseCount: r.licenseCount,
+        brands: r.brands,
+        isOther: false,
+      }));
+      if (tail.length > 0) {
+        const otherAmount = tail.reduce((acc, r) => acc + r.amount, 0);
+        slices.push({
+          tag: 'Other',
+          amount: otherAmount.toFixed(2),
+          share: weightTotal > 0 ? otherAmount / weightTotal : 0,
+          licenseCount: tail.reduce((acc, r) => acc + r.licenseCount, 0),
+          brands: [],
+          isOther: true,
+        });
+      }
+      return slices;
+    };
+    const tagTrend = {
+      ytd: tagWindow(ytdFrom, today),
+      lastYearToDate: tagWindow(lastYtdFrom, lastYtdTo),
+    };
 
     return {
       summary: {

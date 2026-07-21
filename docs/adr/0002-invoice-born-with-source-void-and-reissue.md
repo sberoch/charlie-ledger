@@ -2,7 +2,8 @@
 
 ## Status
 
-accepted
+accepted — the immutability of invoice *dates* is superseded by ADR-0014 (issue/due/paid
+dates are lifecycle fields; the billing snapshot alone stays immutable)
 
 ## Context
 

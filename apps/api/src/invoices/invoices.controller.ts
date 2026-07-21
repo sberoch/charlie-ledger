@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -13,10 +14,12 @@ import type { Response } from 'express';
 import {
   InvoiceListQuerySchema,
   MarkPaidSchema,
+  UpdateInvoiceDatesSchema,
   VoidAndReissueSchema,
   formatInvoiceNumber,
   type InvoiceListQuery,
   type MarkPaidInput,
+  type UpdateInvoiceDatesInput,
   type VoidAndReissueInput,
 } from '@workspace/shared';
 import { zodPipe } from '../common/zod-validation.pipe';
@@ -51,6 +54,15 @@ export class InvoicesController {
       `attachment; filename="${formatInvoiceNumber(dto.number)}.pdf"`,
     );
     this.pdf.render(dto).pipe(res);
+  }
+
+  /** Dates only (ADR-0014) — the billing snapshot has no mutation surface. */
+  @Patch(':id/dates')
+  updateDates(
+    @Param('id') id: string,
+    @Body(zodPipe(UpdateInvoiceDatesSchema)) body: UpdateInvoiceDatesInput,
+  ) {
+    return this.invoices.updateDates(id, body);
   }
 
   @Post(':id/paid')

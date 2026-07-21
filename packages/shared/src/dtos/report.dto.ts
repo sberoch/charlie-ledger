@@ -20,6 +20,10 @@ export const ReportGroupBySchema = z.enum([
   "payer",
   "track",
   "usage_type",
+  // One row per live invoice — the finest partition (Σ rows = grand total,
+  // like brand/payer/track). Feeds the dashboard's month-income dialog, which
+  // renders this same pull so the box and its breakdown can never drift.
+  "invoice",
 ])
 export type ReportGroupBy = z.infer<typeof ReportGroupBySchema>
 
@@ -28,6 +32,7 @@ export const REPORT_GROUP_BY_LABELS: Record<ReportGroupBy, string> = {
   payer: "Payer",
   track: "Track",
   usage_type: "Usage Type",
+  invoice: "Invoice",
 }
 
 export const ReportBasisSchema = z.enum(["commitment", "cash"])

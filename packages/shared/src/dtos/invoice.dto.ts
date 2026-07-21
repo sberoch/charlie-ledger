@@ -55,6 +55,15 @@ export const MarkPaidSchema = z.object({
 })
 export type MarkPaidInput = z.infer<typeof MarkPaidSchema>
 
+/** Dates are lifecycle fields, not part of the immutable billing snapshot
+ *  (ADR-0014): issue and due are edited together on a live invoice — the form
+ *  re-suggests due = issue + 30 when issue changes, never silently. */
+export const UpdateInvoiceDatesSchema = z.object({
+  issueDate: IsoDateSchema,
+  dueDate: IsoDateSchema,
+})
+export type UpdateInvoiceDatesInput = z.infer<typeof UpdateInvoiceDatesSchema>
+
 /** Void & reissue is atomic and takes no body: the new invoice re-snapshots
  *  the source's current Payer block and fee. Editable bits may be overridden. */
 export const VoidAndReissueSchema = z.object({

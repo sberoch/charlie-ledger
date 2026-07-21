@@ -75,19 +75,30 @@ export const ReadyDemoSchema = z.object({
   fee: MoneySchema,
 })
 
+/** The demo box reads as Charlie's output pace, anchored on the Demo's OWN
+ *  writtenAt (not invoice issue date): demos written + their fees, this year
+ *  against last year cut off at the same date — the dashboard's uniform paced
+ *  comparator. Never mixed into lifetime sales. */
 export const DemoIncomeSchema = z.object({
-  /** Σ Demo fees, commitment basis — never mixed into lifetime sales. */
-  total: MoneySchema,
+  /** Demos written Jan 1 → today. */
+  ytdCount: z.number().int(),
+  /** Σ their fees — YTD demo income, commitment basis. */
+  ytdIncome: MoneySchema,
+  /** Jan 1 → same date LAST year (paced, like the Earnings YTD pair). */
+  lastYearToDateCount: z.number().int(),
+  lastYearToDateIncome: MoneySchema,
   openCount: z.number().int(),
   convertedCount: z.number().int(),
 })
 
+/** Royalty income — the third stream, inherently cash basis: a royalty payment
+ *  records money already received on its own date (ADR-0009). YTD against the
+ *  same paced comparator as the demo box; a mid-quarter dip vs last year is
+ *  usually PRO distribution timing, not lost income. */
 export const RoyaltyIncomeSchema = z.object({
-  /** Σ all royalty payment amounts — the third top-level income figure.
-   *  Inherently cash basis: a royalty payment records money already received
-   *  (ADR-0009). Never mixed into lifetime sales or demo income. */
-  total: MoneySchema,
-  paymentCount: z.number().int(),
+  ytdTotal: MoneySchema,
+  ytdPaymentCount: z.number().int(),
+  lastYearToDateTotal: MoneySchema,
 })
 
 export const TopTrackSchema = z.object({
@@ -106,18 +117,33 @@ export const MixSliceSchema = z.object({
   share: z.number(),
 })
 
-export const TagTrendRowSchema = z.object({
-  /** A single tag (mood). Rows are per individual tag, so a multi-tag track's
-   *  fee counts toward each of its tags — totals over-sum by design (like the
-   *  Report's Usage Type rows). See CONTEXT.md "Tag trend". */
+/** One donut slice of the Tag trend. Per individual tag, so a multi-tag
+ *  track's fee counts toward each of its tags — the amounts over-sum by design
+ *  (like the Report's Usage Type rows); `share` is therefore normalized
+ *  against the window's tag-weighted sum, the same move as the usage donut
+ *  (ADR-0004), so slices partition to 100%. See CONTEXT.md "Tag trend". */
+export const TagShareSchema = z.object({
   tag: z.string(),
-  total: MoneySchema,
-  /** Licenses on tracks carrying this tag. */
+  /** Absolute fee weight touching this tag in-window (overlapping). */
+  amount: MoneySchema,
+  /** Share of the tag-weighted sum, 0–1. */
+  share: z.number(),
+  /** Licenses on tracks carrying this tag, in-window. */
   licenseCount: z.number().int(),
-  /** Per-brand breakdown, expanded on tap. */
+  /** Per-brand breakdown, expanded on slice/legend tap. Empty for "Other". */
   brands: z.array(z.object({ brandName: z.string(), amount: MoneySchema })),
+  /** The aggregated tail beyond the top slices. */
+  isOther: z.boolean(),
 })
-export type TagTrendRowDto = z.infer<typeof TagTrendRowSchema>
+export type TagShareDto = z.infer<typeof TagShareSchema>
+
+/** Side-by-side windows, anchored on the live invoice's issue date like every
+ *  commitment figure: YTD beside last year cut off at the same date. */
+export const TagTrendSchema = z.object({
+  ytd: z.array(TagShareSchema),
+  lastYearToDate: z.array(TagShareSchema),
+})
+export type TagTrendDto = z.infer<typeof TagTrendSchema>
 
 export const ActivityItemSchema = z.object({
   kind: z.enum([
@@ -144,7 +170,7 @@ export const DashboardSchema = z.object({
   royaltyIncome: RoyaltyIncomeSchema,
   topTracks: z.array(TopTrackSchema),
   licenseMix: z.array(MixSliceSchema),
-  tagTrend: z.array(TagTrendRowSchema),
+  tagTrend: TagTrendSchema,
   activity: z.array(ActivityItemSchema),
 })
 export type DashboardDto = z.infer<typeof DashboardSchema>

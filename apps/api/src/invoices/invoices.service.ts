@@ -13,6 +13,7 @@ import {
   todayIso,
   type InvoiceDto,
   type InvoiceListQuery,
+  type UpdateInvoiceDatesInput,
   type VoidAndReissueInput,
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
@@ -68,6 +69,28 @@ export class InvoicesService {
     if (row.voidedAt)
       throw new BadRequestException('A voided invoice cannot be paid');
     await this.db.update(invoice).set({ paidDate }).where(eq(invoice.id, id));
+    return this.detail(id);
+  }
+
+  /**
+   * Dates are lifecycle fields, not part of the immutable billing snapshot
+   * (ADR-0014). Edited together so a backdated issue never silently strands
+   * or flips the due date — the client re-suggests due = issue + 30.
+   */
+  async updateDates(
+    id: string,
+    input: UpdateInvoiceDatesInput,
+  ): Promise<InvoiceDto> {
+    const row = await this.loadRow(id);
+    if (!row) throw new NotFoundException('Invoice not found');
+    if (row.voidedAt)
+      throw new BadRequestException(
+        'A voided invoice is closed history — its dates cannot change',
+      );
+    await this.db
+      .update(invoice)
+      .set({ issueDate: input.issueDate, dueDate: input.dueDate })
+      .where(eq(invoice.id, id));
     return this.detail(id);
   }
 

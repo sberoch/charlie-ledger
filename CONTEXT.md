@@ -177,7 +177,9 @@ commissioned — has a Brand, a **Payer** (the music house), a fee, and a workin
 from when it was written; the dashboard surfaces it once the hold lifts so the idea can be
 reused. Originally forward-only (pre-platform demos untracked); reversed 2026-07-14 — the
 2020–2026 QuickBooks demo history backfills as first-class Demos (see [[demo import]]).
-_Avoid_: Pitch, cue, spec track.
+Note: Charlie colloquially says **"track"** for the cues he writes — in his mouth "track
+count" in a demo context means *Demo count*, never catalog [[track]]s.
+_Avoid_: Pitch, cue, spec track, track (colloquial — a Demo is not a Track).
 
 **Conversion**:
 Charlie's decision that a Demo's idea will become a library Track. Flips the Demo's status
@@ -226,8 +228,12 @@ Demo. The number is assigned at creation and revealed after save, never before. 
 **Payer** — and the source's **Grant terms** — at creation time, so later edits never alter
 historical invoices. Its
 display status (Paid / Unpaid / Overdue / Voided) is **derived**, not stored — from
-`paid_date`, `due_date`, and `voided_at`. An invoice is never hard-deleted or edited; the
-only correction is **void & reissue** — one atomic action that voids it (number retained,
+`paid_date`, `due_date`, and `voided_at`. An invoice is never hard-deleted, and its
+**billing snapshot** (number, bill-to, amount, description) is never edited; its **dates
+are lifecycle fields** (ADR-0014) — the issue date is chosen at birth (defaults to the
+creation day, freely backdatable) and, like the due and paid dates, stays editable on a
+live invoice (editing the issue date re-suggests due = issue + 30, never silently). The
+only snapshot correction is **void & reissue** — one atomic action that voids it (number retained,
 excluded from receivables and reports) and issues a replacement with a fresh snapshot and
 the next number. A source therefore always has exactly one **live** invoice plus zero or
 more voided ones; a Paid invoice cannot be voided. See ADR-0001 / ADR-0002.
@@ -330,14 +336,20 @@ the License exists, regardless of whether its Invoice is paid. Invoice-independe
 
 **Demo income**:
 Σ of all Demo fees, also commitment-basis. A separate top-level figure, never mixed into
-lifetime sales.
+lifetime sales. Windowed views (the dashboard demo box) anchor on the Demo's **written
+date** — the box pairs the year's demo count and demo income against last year **cut off
+at the same date** (the dashboard's uniform paced comparator), so it reads as Charlie's
+output pace, not receivables.
 
 **Royalty income**:
 Σ of all [[royalty payment]] amounts — the third top-level income figure on the dashboard,
 alongside Lifetime sales and Demo income, and never mixed into either. Inherently cash
 basis (a royalty payment records money already received, anchored on its date); the
 commitment-vs-cash distinction that splits Lifetime sales from the Report does not exist
-for royalties.
+for royalties. The dashboard box shows the **year-to-date** cut (payment count and
+amount, anchored on payment date) against last year **cut off at the same date** — the
+uniform paced comparator, kept knowing royalty distributions are lumpy (a mid-quarter
+"dip" is usually BMI timing, not lost income).
 _Avoid_: Royalty sales, royalty revenue.
 
 **Earnings**:
@@ -362,13 +374,18 @@ whose `renewed_to_id` points at a replacing License. A measure of how often expi
 come back; surfaced alongside Revenue at Risk on the dashboard.
 
 **Tag trend**:
-A ranked rollup answering "what styles sell, and to whom": License fees summed **per
-individual Tag**, expandable per Brand. Commitment basis, like lifetime sales. Because a
-Track carries many Tags, a License's fee counts toward **each** of its Track's Tags — so the
-rows **overlap and over-sum the grand total by design**, exactly like the Report's Usage Type
-rows. (It was originally summed by the Track's whole *tag combination*, but once tracks carry
-many mood tags every combination is unique and ranks nothing — the individual Tag is the
-meaningful unit.) Tags are the platform-owned catalog vocabulary (managed from Settings).
+A mix view answering "what styles sell, and to whom": each individual Tag's **share** of
+the tag-weighted License-fee sum, shown **year-to-date beside last year cut off at the
+same date** (the uniform paced comparator), anchored on the live invoice's issue date
+like every commitment figure, and expandable per Brand. Because a Track carries many
+Tags, a License's fee counts toward **each** of its Track's Tags — the underlying rows
+**overlap and over-sum by design**, exactly like the Report's Usage Type rows — so
+shares are normalized against the tag-weighted sum (the same move as the usage donut,
+ADR-0004), never presented as shares of real dollars. A trackless WFH license carries no
+Tags and never counts here. (Originally a lifetime ranked dollar rollup; became a
+windowed share view 2026-07 at Charlie's ask. Earlier still it summed whole *tag
+combinations*, which ranked nothing once tracks carried many mood tags.) Tags are the
+platform-owned catalog vocabulary (managed from Settings).
 
 **Report (sales report)**:
 A date-range income pull, **dual-basis with commitment as the default** (ADR-0012).

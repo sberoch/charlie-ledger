@@ -112,6 +112,7 @@ export function LicenseForm({
           trackId: initialTrackId ?? "",
           usageTypes: [],
           startDate: todayIso(),
+          issueDate: todayIso(),
           fee: "",
         },
   })
@@ -335,6 +336,21 @@ export function LicenseForm({
             />
           </div>
         </Field>
+
+        {!existing ? (
+          <Field
+            label="Invoice Issue Date"
+            hint="The born invoice's date — backdate when logging an older deal (due defaults to issue + 30). Editable later on the invoice itself."
+          >
+            <Input
+              type="date"
+              value={values.issueDate ?? ""}
+              onChange={(e) =>
+                form.setValue("issueDate", e.target.value || undefined)
+              }
+            />
+          </Field>
+        ) : null}
 
         <Field label="Invoice terms">
           <Textarea
