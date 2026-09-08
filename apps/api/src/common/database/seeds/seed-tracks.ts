@@ -13,28 +13,34 @@ import { seedTags } from './seed-tags';
 // The first 15 are the prototype's validated tracks, exact names and tags, so
 // every screen Charlie approved shows him data he has already seen.
 
+// Tags are drawn from the curated mood vocabulary in seed-tags.ts. The
+// prototype's original genre/texture words (cinematic, ambient, indie,
+// electronic…) are deliberately NOT in that vocabulary, so they are mapped to
+// the nearest mood equivalent here — otherwise the reconcile below skips them
+// silently and the catalog seeds untagged, which empties the dashboard's tag
+// donut (ADR-0014).
 const TRACKS: Array<{ name: string; tags: string[] }> = [
-  { name: 'Empire', tags: ['cinematic', 'driving', 'expansive'] },
-  { name: 'Cartography', tags: ['cinematic', 'expansive', 'atmospheric'] },
-  { name: 'Northern Air', tags: ['cinematic', 'melancholic', 'sparse'] },
-  { name: 'Departure', tags: ['indie', 'melancholic', 'warm'] },
-  { name: 'Tessellate', tags: ['electronic', 'geometric', 'pulsing'] },
-  { name: 'Reset Self', tags: ['electronic', 'uplifting', 'pulsing'] },
-  { name: 'Last Frost', tags: ['cinematic', 'melancholic', 'sparse'] },
-  { name: 'Glass Pavilion', tags: ['ambient', 'melancholic', 'slow'] },
-  { name: 'Static Field', tags: ['electronic', 'tense', 'glitched'] },
-  { name: 'Colony', tags: ['electronic', 'driving', 'dark'] },
-  { name: 'Ironwood', tags: ['indie', 'driving', 'warm'] },
-  { name: 'Halflight', tags: ['ambient', 'intimate', 'warm'] },
-  { name: 'Slow Bloom', tags: ['ambient', 'organic', 'intimate'] },
-  { name: 'Open Water', tags: ['indie', 'uplifting', 'expansive'] },
-  { name: 'Paper Lanterns', tags: ['ambient', 'uplifting', 'organic'] },
+  { name: 'Empire', tags: ['dramatic', 'building', 'epic'] },
+  { name: 'Cartography', tags: ['dramatic', 'epic', 'atmospheric'] },
+  { name: 'Northern Air', tags: ['dramatic', 'sad', 'minimal'] },
+  { name: 'Departure', tags: ['organic', 'reflective', 'warm'] },
+  { name: 'Tessellate', tags: ['minimal', 'building', 'intense'] },
+  { name: 'Reset Self', tags: ['hopeful', 'building', 'upbeat'] },
+  { name: 'Last Frost', tags: ['solemn', 'sad', 'minimal'] },
+  { name: 'Glass Pavilion', tags: ['atmospheric', 'reflective', 'relaxed'] },
+  { name: 'Static Field', tags: ['tension', 'gritty', 'intense'] },
+  { name: 'Colony', tags: ['dark', 'building', 'powerful'] },
+  { name: 'Ironwood', tags: ['organic', 'motivating', 'warm'] },
+  { name: 'Halflight', tags: ['dreamy', 'romantic', 'warm'] },
+  { name: 'Slow Bloom', tags: ['atmospheric', 'organic', 'emotive'] },
+  { name: 'Open Water', tags: ['hopeful', 'epic', 'inspiring'] },
+  { name: 'Paper Lanterns', tags: ['dreamy', 'hopeful', 'organic'] },
   // Five generated to round out the catalog to 20.
-  { name: 'Vermillion', tags: ['cinematic', 'tense', 'orchestral'] },
-  { name: 'Low Tide', tags: ['ambient', 'organic', 'slow'] },
-  { name: 'Night Market', tags: ['electronic', 'playful', 'pulsing'] },
-  { name: 'Sandstone', tags: ['indie', 'warm', 'organic'] },
-  { name: 'Meridian', tags: ['cinematic', 'uplifting', 'expansive'] },
+  { name: 'Vermillion', tags: ['dramatic', 'tension', 'epic'] },
+  { name: 'Low Tide', tags: ['chill', 'organic', 'relaxed'] },
+  { name: 'Night Market', tags: ['colorful', 'bubbly', 'upbeat'] },
+  { name: 'Sandstone', tags: ['warm', 'organic', 'retro'] },
+  { name: 'Meridian', tags: ['epic', 'inspiring', 'triumphant'] },
 ];
 
 export async function seedTracks() {

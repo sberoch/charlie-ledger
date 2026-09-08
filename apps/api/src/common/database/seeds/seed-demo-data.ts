@@ -12,6 +12,7 @@ import {
 import { DemosService } from '../../../demos/demos.service';
 import { InvoiceIssuerService } from '../../../invoices/invoice-issuer.service';
 import { LicensesService } from '../../../licenses/licenses.service';
+import { RoyaltiesService } from '../../../royalties/royalties.service';
 import { db } from '../db';
 import {
   brand,
@@ -423,6 +424,15 @@ async function trackIdByName(name: string): Promise<string> {
   return row.id;
 }
 
+/** Resolve a brand the license fixtures above already created — never creates. */
+async function brandIdByName(name: string): Promise<string> {
+  const row = await db.query.brand.findFirst({
+    where: sql`lower(${brand.name}) = lower(${name})`,
+  });
+  if (!row) throw new Error(`Seed brand missing: ${name}`);
+  return row.id;
+}
+
 async function seedDemoData() {
   const existing = await db.execute<{ count: string }>(
     sql`SELECT count(*) FROM ${license}`,
@@ -564,7 +574,7 @@ async function seedDemoData() {
   //    max(start) is over three years past → SELL THIS via lastLicensedAt.
   const dustlineId = await insertSellTrack(
     'Dustline',
-    ['ambient', 'slow'],
+    ['atmospheric', 'relaxed'],
     365 * 5,
   );
   const dustStart = addDays(today, -365 * 4);
@@ -597,18 +607,162 @@ async function seedDemoData() {
 
   // 2) Never licensed but old — createdAt is the fallback reference date and
   //    it is over three years past → SELL THIS via the createdAt fallback.
-  await insertSellTrack(
-    'Forgotten Embers',
-    ['cinematic', 'melancholic'],
-    365 * 4,
-  );
+  await insertSellTrack('Forgotten Embers', ['dramatic', 'sad'], 365 * 4);
 
   // 3) Negative control — never licensed AND recently created → no badge.
-  await insertSellTrack('Fresh Pressing', ['indie', 'warm'], 30);
+  await insertSellTrack('Fresh Pressing', ['organic', 'warm'], 30);
 
   console.log(
     '✓ seeded 3 sell-signal fixtures (Dustline, Forgotten Embers — flagged; Fresh Pressing — control)',
   );
+
+  // ── Royalty income (ADR-0009) ──────────────────────────────────────────────
+  // The third income stream, and the only inherently cash-basis one. Modeled on
+  // the real 2020–2026 import: lumpy quarterly PRO distributions (BMI settles
+  // Writers and Publishing as two separate rows), AFM/SAG new-use payouts, and
+  // music-house / individual pass-throughs.
+  //
+  // Emitted for LAST year in full and THIS year only up to today, because the
+  // dashboard compares YTD against the same window last year — seeding one
+  // window without the other leaves the comparator with nothing to say.
+  const royalties = new RoyaltiesService(db);
+  const thisYear = Number(today.slice(0, 4));
+  // Prior year is the baseline; this year is scaled so the demo shows growth
+  // rather than a flat YoY line.
+  const YOY_GROWTH = 1.18;
+
+  const ROYALTY_SCHEDULE: Array<{
+    monthDay: string;
+    payer: string;
+    description: string;
+    amount: number;
+    brand?: string;
+    track?: string;
+  }> = [
+    {
+      monthDay: '01-15',
+      payer: 'BMI',
+      description: 'Q4 distribution — Writers',
+      amount: 4200,
+    },
+    {
+      monthDay: '01-15',
+      payer: 'BMI',
+      description: 'Q4 distribution — Publishing',
+      amount: 4200,
+    },
+    {
+      monthDay: '02-20',
+      payer: 'American Federation of Musicians',
+      description: 'New use — broadcast spot',
+      amount: 1850,
+      brand: 'Chevrolet',
+      track: 'Empire',
+    },
+    {
+      monthDay: '03-28',
+      payer: 'Yessian Music',
+      description: 'Pass-through — campaign royalties',
+      amount: 2400,
+      brand: 'Subaru',
+    },
+    {
+      monthDay: '04-15',
+      payer: 'BMI',
+      description: 'Q1 distribution — Writers',
+      amount: 5100,
+    },
+    {
+      monthDay: '04-15',
+      payer: 'BMI',
+      description: 'Q1 distribution — Publishing',
+      amount: 5100,
+    },
+    // Zero is legal and faithful — a royalty event that paid nothing still
+    // belongs in the history (ADR-0009).
+    {
+      monthDay: '05-22',
+      payer: 'Screen Actors Guild',
+      description: 'Residual statement — no payable balance',
+      amount: 0,
+    },
+    {
+      monthDay: '06-30',
+      payer: 'Gareth Smith (Personal)',
+      description: 'Shared cue royalties',
+      amount: 950,
+      track: 'Northern Air',
+    },
+    {
+      monthDay: '07-15',
+      payer: 'BMI',
+      description: 'Q2 distribution — Writers',
+      amount: 3800,
+    },
+    {
+      monthDay: '07-15',
+      payer: 'BMI',
+      description: 'Q2 distribution — Publishing',
+      amount: 3800,
+    },
+    {
+      monthDay: '08-25',
+      payer: 'American Federation of Musicians',
+      description: 'New use — streaming',
+      amount: 1200,
+      track: 'Cartography',
+    },
+    {
+      monthDay: '10-15',
+      payer: 'BMI',
+      description: 'Q3 distribution — Writers',
+      amount: 4600,
+    },
+    {
+      monthDay: '10-15',
+      payer: 'BMI',
+      description: 'Q3 distribution — Publishing',
+      amount: 4600,
+    },
+    {
+      monthDay: '11-12',
+      payer: 'Screen Actors Guild',
+      description: 'Residual — broadcast',
+      amount: 2750,
+      brand: 'HBO',
+    },
+    {
+      monthDay: '12-05',
+      payer: 'Yessian Music',
+      description: 'Pass-through — year-end true-up',
+      amount: 3100,
+    },
+  ];
+
+  let royaltyCount = 0;
+  for (const year of [thisYear - 1, thisYear]) {
+    const scale = year === thisYear ? YOY_GROWTH : 1;
+    for (const fx of ROYALTY_SCHEDULE) {
+      const paymentDate = `${year}-${fx.monthDay}`;
+      // ISO dates compare lexicographically — skip the not-yet-arrived tail of
+      // the current year.
+      if (paymentDate > today) continue;
+      await royalties.create(
+        {
+          date: paymentDate,
+          payerId: await findOrCreatePayer(fx.payer),
+          description: fx.description,
+          amount: (fx.amount * scale).toFixed(2),
+          brandId: fx.brand ? await brandIdByName(fx.brand) : null,
+          trackId: fx.track ? await trackIdByName(fx.track) : null,
+        },
+        null,
+      );
+      royaltyCount++;
+    }
+  }
+
+  console.log(`✓ seeded ${royaltyCount} royalty payments across two years`);
 }
 
 if (require.main === module) {
