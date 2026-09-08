@@ -187,6 +187,17 @@ export function TrackDetailPage({ id }: { id: string }) {
             ) : null}
           </div>
           <p className="mt-3 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+            {track.album ? (
+              <Link
+                href={`/tracks?album=${encodeURIComponent(track.album)}`}
+                className="underline decoration-border underline-offset-3 hover:text-foreground"
+              >
+                Album · {track.album}
+              </Link>
+            ) : (
+              <span className="italic">No album</span>
+            )}
+            <span className="mx-2">·</span>
             Added {formatDate(track.createdAt)}
           </p>
         </div>

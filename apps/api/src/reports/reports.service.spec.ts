@@ -30,7 +30,7 @@ describe('ReportsService.groupLabels — invoice partition', () => {
         license: {
           brand: { name: 'Subaru' },
           payer: { name: 'Empire Agency' },
-          track: { name: 'Empire' },
+          track: { name: 'Empire', album: null },
           usageTypes: ['broadcast'],
         },
         demo: null,
@@ -69,5 +69,83 @@ describe('ReportsService.toCsv', () => {
     const csv = service.toCsv({ ...base, basis: 'cash' });
     expect(csv).toContain('Group,Paid invoices,Total (USD)');
     expect(csv).toContain('Basis: cash');
+  });
+});
+
+describe('ReportsService.groupLabels — album partition', () => {
+  const license = {
+    brand: { name: 'Subaru' },
+    payer: { name: 'Empire Agency' },
+    usageTypes: ['broadcast' as const],
+  };
+
+  it('labels a license invoice by its track album', () => {
+    const labels = service['groupLabels'](
+      {
+        number: 1,
+        license: {
+          ...license,
+          track: { name: 'Empire', album: { name: 'Colors' } },
+        },
+        demo: null,
+      },
+      'album',
+    );
+    expect(labels).toEqual(['Colors']);
+  });
+
+  it('pools album-less tracks, trackless WFH and demos into "— No album"', () => {
+    const albumless = service['groupLabels'](
+      {
+        number: 2,
+        license: { ...license, track: { name: 'LOOT', album: null } },
+        demo: null,
+      },
+      'album',
+    );
+    const trackless = service['groupLabels'](
+      { number: 3, license: { ...license, track: null }, demo: null },
+      'album',
+    );
+    const demo = service['groupLabels'](
+      {
+        number: 4,
+        license: null,
+        demo: {
+          brand: { name: 'Walmart' },
+          payer: { name: 'SEC' },
+          workingName: 'x',
+        },
+      },
+      'album',
+    );
+    expect([albumless, trackless, demo]).toEqual([
+      ['— No album'],
+      ['— No album'],
+      ['— No album'],
+    ]);
+  });
+});
+
+describe('ReportsService.toCsv — album grouping', () => {
+  it('adds Sales / Royalties / Total columns and keeps the sales-only section total', () => {
+    const csv = service.toCsv({
+      ...base,
+      groupBy: 'album',
+      rows: [
+        {
+          label: 'Colors',
+          invoiceCount: 2,
+          total: '5000.00',
+          royaltyTotal: '120.50',
+          incomeTotal: '5120.50',
+        },
+      ],
+    });
+    expect(csv).toContain(
+      'Group,Invoices,Sales (USD),Royalties (USD),Total (USD)',
+    );
+    expect(csv).toContain('"Colors",2,5000.00,120.50,5120.50');
+    expect(csv).toContain('SALES TOTAL,2,5000.00,,');
   });
 });

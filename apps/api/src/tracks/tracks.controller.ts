@@ -12,6 +12,7 @@ import {
 import type { Response } from 'express';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import {
+  NO_ALBUM_FILTER,
   CreateTrackSchema,
   ImportTracksSchema,
   TrackExportQuerySchema,
@@ -32,6 +33,10 @@ import { TracksService } from './tracks.service';
 /** Human label for the active filter, shown on the PDF header. */
 function filterLabel(query: TrackExportQuery): string {
   const parts: string[] = [query.tag ? `Tag · ${query.tag}` : 'All tags'];
+  if (query.album)
+    parts.push(
+      query.album === NO_ALBUM_FILTER ? 'No album' : `Album · ${query.album}`,
+    );
   if (query.sell) parts.push('Sell this');
   else if (query.status)
     parts.push(query.status === 'archived' ? 'Archived' : 'Active');

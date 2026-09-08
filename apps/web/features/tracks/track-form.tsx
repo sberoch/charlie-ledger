@@ -12,6 +12,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { useCreateTrack, useUpdateTrack } from "./hooks"
+import { AlbumSelect } from "./album-select"
 import { TagMultiSelect } from "./tag-multi-select"
 
 function Field({
@@ -49,8 +50,8 @@ export function TrackForm({
   const form = useForm<CreateTrackInput>({
     resolver: zodResolver(CreateTrackSchema),
     defaultValues: existing
-      ? { name: existing.name, tags: existing.tags }
-      : { name: "", tags: [] },
+      ? { name: existing.name, tags: existing.tags, album: existing.album }
+      : { name: "", tags: [], album: null },
   })
   const values = form.watch()
 
@@ -83,6 +84,18 @@ export function TrackForm({
           value={values.name ?? ""}
           onChange={(e) =>
             form.setValue("name", e.target.value, { shouldValidate: true })
+          }
+        />
+      </Field>
+
+      <Field
+        label="Album"
+        hint="The library release this track was ingested under. Leave as “No album” for custom work."
+      >
+        <AlbumSelect
+          value={values.album ?? null}
+          onChange={(album) =>
+            form.setValue("album", album, { shouldValidate: true })
           }
         />
       </Field>

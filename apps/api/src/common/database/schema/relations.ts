@@ -1,4 +1,5 @@
 import { relations } from 'drizzle-orm';
+import { album } from './album';
 import { brand } from './brand';
 import { brandCategory } from './brand-category';
 import { demo } from './demo';
@@ -37,7 +38,16 @@ export const payerRelations = relations(payer, ({ many }) => ({
   royaltyPayments: many(royaltyPayment),
 }));
 
-export const trackRelations = relations(track, ({ many }) => ({
+export const albumRelations = relations(album, ({ many }) => ({
+  tracks: many(track),
+}));
+
+export const trackRelations = relations(track, ({ one, many }) => ({
+  // The library release this track was ingested under (null = "No album").
+  album: one(album, {
+    fields: [track.albumId],
+    references: [album.id],
+  }),
   licenses: many(license),
   // Demos whose idea was converted into this track (lineage).
   convertedDemos: many(demo),

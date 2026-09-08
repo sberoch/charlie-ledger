@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@workspace/ui/lib/utils"
 import { PageHeader } from "@/components/shell/page-header"
 import { useBrands } from "@/features/parties/hooks"
+import { AlbumsPanel } from "./albums-panel"
 import { BrandsPanel, isUncategorized } from "./brands-panel"
 import { GeneralPanel } from "./general-panel"
 import { PayersPanel } from "./payers-panel"
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: "brands", label: "Brands" },
   { id: "payers", label: "Payers" },
   { id: "tags", label: "Tags" },
+  { id: "albums", label: "Albums" },
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]["id"]
@@ -72,6 +74,7 @@ export function SettingsPage() {
           {section === "brands" ? <BrandsPanel /> : null}
           {section === "payers" ? <PayersPanel /> : null}
           {section === "tags" ? <TagsPanel /> : null}
+          {section === "albums" ? <AlbumsPanel /> : null}
         </div>
       </div>
     </div>

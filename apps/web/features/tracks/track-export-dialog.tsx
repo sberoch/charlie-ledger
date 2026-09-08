@@ -28,11 +28,15 @@ const ALL = "__all__"
 export function TrackExportDialog({
   tags,
   currentTag,
+  album,
   search,
   status,
 }: {
   tags: string[]
   currentTag: string | null
+  /** The list's active album filter (name or NO_ALBUM_FILTER) — mirrored
+   *  into the export like the status lens. */
+  album: string | null
   search: string
   /** The list's active status / "Sell this" lens — null = All. The export
    *  mirrors it so the file equals the on-screen view (CONTEXT.md: "Track export"). */
@@ -53,6 +57,7 @@ export function TrackExportDialog({
   const exportAs = (ext: "csv" | "pdf") => {
     const params = new URLSearchParams()
     if (tag !== ALL) params.set("tag", tag)
+    if (album) params.set("album", album)
     if (status === "sell") params.set("sell", "true")
     else if (status) params.set("status", status)
     if (search) params.set("search", search)

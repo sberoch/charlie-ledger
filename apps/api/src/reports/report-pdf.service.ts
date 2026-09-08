@@ -50,21 +50,38 @@ export class ReportPdfService {
       .strokeColor(INK)
       .stroke();
 
+    // Album rows carry royalties beside sales (CONTEXT.md "Album"): two
+    // extra money columns, the last one their sum. Every other grouping keeps
+    // the three-column layout.
+    const byAlbum = result.groupBy === 'album';
+    const money = (v: string, from: number, w: number, bold = true) => {
+      doc.font(bold ? 'Courier-Bold' : 'Courier');
+      doc.text(formatMoney(v), MARGIN + width * from, y, {
+        width: width * w,
+        align: 'right',
+      });
+    };
+
     let y = 148;
     doc.font('Courier').fontSize(8).fillColor(MUTED);
     doc.text(REPORT_GROUP_BY_LABELS[result.groupBy].toUpperCase(), MARGIN, y, {
       characterSpacing: 1.5,
     });
-    doc.text('INVOICES', MARGIN + width * 0.55, y, {
-      width: width * 0.15,
-      align: 'right',
-      characterSpacing: 1.5,
-    });
-    doc.text('TOTAL', MARGIN, y, {
-      width,
-      align: 'right',
-      characterSpacing: 1.5,
-    });
+    const head = (label: string, from: number, w: number) =>
+      doc.text(label, MARGIN + width * from, y, {
+        width: width * w,
+        align: 'right',
+        characterSpacing: 1.5,
+      });
+    if (byAlbum) {
+      head('INVOICES', 0.36, 0.12);
+      head('SALES', 0.48, 0.17);
+      head('ROYALTIES', 0.65, 0.17);
+      head('TOTAL', 0.82, 0.18);
+    } else {
+      head('INVOICES', 0.55, 0.15);
+      head('TOTAL', 0, 1);
+    }
     y += 18;
 
     for (const row of result.rows) {
@@ -73,13 +90,23 @@ export class ReportPdfService {
         y = MARGIN;
       }
       doc.font('Courier').fontSize(10).fillColor(INK);
-      doc.text(row.label, MARGIN, y, { width: width * 0.5, ellipsis: true });
-      doc.text(String(row.invoiceCount), MARGIN + width * 0.55, y, {
-        width: width * 0.15,
-        align: 'right',
-      });
-      doc.font('Courier-Bold');
-      doc.text(formatMoney(row.total), MARGIN, y, { width, align: 'right' });
+      if (byAlbum) {
+        doc.text(row.label, MARGIN, y, { width: width * 0.34, ellipsis: true });
+        doc.text(String(row.invoiceCount), MARGIN + width * 0.36, y, {
+          width: width * 0.12,
+          align: 'right',
+        });
+        money(row.total, 0.48, 0.17, false);
+        money(row.royaltyTotal ?? '0.00', 0.65, 0.17, false);
+        money(row.incomeTotal ?? row.total, 0.82, 0.18);
+      } else {
+        doc.text(row.label, MARGIN, y, { width: width * 0.5, ellipsis: true });
+        doc.text(String(row.invoiceCount), MARGIN + width * 0.55, y, {
+          width: width * 0.15,
+          align: 'right',
+        });
+        money(row.total, 0, 1);
+      }
       y += 22;
       doc
         .moveTo(MARGIN, y - 6)

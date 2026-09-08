@@ -19,6 +19,7 @@ import { RemindersModule } from './reminders/reminders.module';
 import { ReportsModule } from './reports/reports.module';
 import { RoyaltiesModule } from './royalties/royalties.module';
 import { SettingsModule } from './settings/settings.module';
+import { AlbumsModule } from './albums/albums.module';
 import { TagsModule } from './tags/tags.module';
 import { TracksModule } from './tracks/tracks.module';
 import { UsersModule } from './users/users.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     RoyaltiesModule,
     TracksModule,
     TagsModule,
+    AlbumsModule,
     DashboardModule,
     ReportsModule,
     DigestModule,

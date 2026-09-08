@@ -113,6 +113,13 @@
       "when": 1788880374610,
       "tag": "0015_demo_shelved_at",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788888357787,
+      "tag": "0016_album",
+      "breakpoints": true
     }
   ]
 }

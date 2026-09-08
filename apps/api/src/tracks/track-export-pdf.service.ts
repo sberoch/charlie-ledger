@@ -38,6 +38,12 @@ const TRACK_COL: Column = {
   w: 0.3,
   cell: (r) => r.name,
 };
+const ALBUM_COL: Column = {
+  label: 'ALBUM',
+  align: 'left',
+  w: 0.2,
+  cell: (r) => r.album ?? 'No album',
+};
 const TAGS_COL: Column = {
   label: 'TAGS',
   align: 'left',
@@ -53,25 +59,27 @@ const STATUS_COL: Column = {
 };
 
 const CATALOG_COLS: Column[] = [
-  { ...TRACK_COL, w: 0.45 },
-  { ...TAGS_COL, w: 0.4 },
-  { ...STATUS_COL, w: 0.15 },
+  { ...TRACK_COL, w: 0.34 },
+  { ...ALBUM_COL, w: 0.22 },
+  { ...TAGS_COL, w: 0.31 },
+  { ...STATUS_COL, w: 0.13 },
 ];
 
 const FINANCIAL_COLS: Column[] = [
-  TRACK_COL,
-  { ...TAGS_COL, w: 0.26 },
-  { ...STATUS_COL, w: 0.12 },
+  { ...TRACK_COL, w: 0.24 },
+  { ...ALBUM_COL, w: 0.16 },
+  { ...TAGS_COL, w: 0.2 },
+  { ...STATUS_COL, w: 0.1 },
   {
     label: 'LIC',
     align: 'right',
-    w: 0.08,
+    w: 0.07,
     cell: (r) => String(r.licenseCount),
   },
   {
     label: 'LIFETIME',
     align: 'right',
-    w: 0.14,
+    w: 0.13,
     cell: (r) => formatMoney(r.lifetimeSales),
   },
   {

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
+  NO_ALBUM_FILTER,
   formatLicenseSpan,
   splitSearchTerms,
   type CreateTrackInput,
@@ -21,6 +22,7 @@ import {
 import type { Db, DbTransaction } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
 import {
+  album,
   brand,
   brandCategory,
   demo,
@@ -29,6 +31,7 @@ import {
   track,
   trackTag,
 } from '../common/database/schema';
+import { AlbumsService } from '../albums/albums.service';
 import { isSellRecommended } from './sell-recommended';
 
 // Track — catalog read models (list/detail) plus the in-use tag chips. Tags
@@ -36,11 +39,18 @@ import { isSellRecommended } from './sell-recommended';
 // preserved so export/PDF/dashboard consumers are unaffected. See CONTEXT.md.
 @Injectable()
 export class TracksService {
-  constructor(@Inject(DrizzleProvider) private readonly db: Db) {}
+  constructor(
+    @Inject(DrizzleProvider) private readonly db: Db,
+    private readonly albums: AlbumsService,
+  ) {}
 
   async list(query: TrackListQuery): Promise<TrackListItemDto[]> {
     const conditions = [sql`true`];
     if (query.status) conditions.push(sql`${track.status} = ${query.status}`);
+    // Album filter: a name, or the "No album" sentinel (CONTEXT.md "Album").
+    if (query.album === NO_ALBUM_FILTER)
+      conditions.push(sql`${track.albumId} is null`);
+    else if (query.album) conditions.push(sql`${album.name} = ${query.album}`);
     if (query.tag)
       conditions.push(sql`exists (
         select 1 from ${trackTag}
@@ -71,6 +81,7 @@ export class TracksService {
           join ${tag} on ${tag.id} = ${trackTag.tagId}
           where ${trackTag.trackId} = ${track.id}
         ), '{}'::text[])`,
+        album: album.name,
         status: track.status,
         licenseCount: sql<number>`count(${license.id})::int`,
         lifetimeSales: sql<string>`coalesce(sum(${license.fee}), 0)::text`,
@@ -79,9 +90,10 @@ export class TracksService {
         createdAt: track.createdAt,
       })
       .from(track)
+      .leftJoin(album, eq(album.id, track.albumId))
       .leftJoin(license, eq(license.trackId, track.id))
       .where(sql.join(conditions, sql` AND `))
-      .groupBy(track.id)
+      .groupBy(track.id, album.name)
       .orderBy(sql`coalesce(sum(${license.fee}), 0) DESC`, track.name);
 
     const now = new Date();
@@ -157,6 +169,7 @@ export class TracksService {
       s === 'archived' ? 'Archived' : 'Active';
     const base = (r: TrackListItemDto) => [
       esc(r.name),
+      esc(r.album ?? 'No album'),
       esc(r.tags.join('; ')),
       status(r.status),
     ];
@@ -165,7 +178,7 @@ export class TracksService {
       esc((r.licenses ?? []).map(formatLicenseSpan).join('; '));
 
     if (!financials) {
-      const header = ['Track', 'Tags', 'Status'];
+      const header = ['Track', 'Album', 'Tags', 'Status'];
       if (history) header.push('License History');
       const lines = [
         header.join(','),
@@ -176,6 +189,7 @@ export class TracksService {
         }),
         [
           esc(`TOTAL (${rows.length} tracks)`),
+          '',
           '',
           '',
           ...(history ? [''] : []),
@@ -190,6 +204,7 @@ export class TracksService {
       .toFixed(2);
     const header = [
       'Track',
+      'Album',
       'Tags',
       'Status',
       'Licenses',
@@ -211,6 +226,7 @@ export class TracksService {
       }),
       [
         esc(`TOTAL (${rows.length} tracks)`),
+        '',
         '',
         '',
         String(totalLicenses),
@@ -245,9 +261,12 @@ export class TracksService {
   ): Promise<TrackDetailDto> {
     await this.assertNameAvailable(input.name);
     const id = await this.db.transaction(async (tx) => {
+      const albumId = input.album
+        ? await this.albums.resolve(tx, input.album, userId)
+        : null;
       const [row] = await tx
         .insert(track)
-        .values({ name: input.name })
+        .values({ name: input.name, albumId })
         .returning({ id: track.id });
       await this.syncTags(tx, row.id, input.tags, userId);
       return row.id;
@@ -330,8 +349,10 @@ export class TracksService {
     return { imported, skipped };
   }
 
-  /** Update name and/or tags. Omitted `tags` leaves assignments untouched; an
-   *  empty array clears them. `status` is never touched here (see setStatus). */
+  /** Update name, tags and/or album. Omitted `tags` leaves assignments
+   *  untouched; an empty array clears them. Omitted `album` leaves it alone;
+   *  null clears it to "No album", a name is pick-or-created. `status` is
+   *  never touched here (see setStatus). */
   async update(
     id: string,
     input: UpdateTrackInput,
@@ -350,6 +371,12 @@ export class TracksService {
           .update(track)
           .set({ name: input.name })
           .where(eq(track.id, id));
+      if (input.album !== undefined) {
+        const albumId = input.album
+          ? await this.albums.resolve(tx, input.album, userId)
+          : null;
+        await tx.update(track).set({ albumId }).where(eq(track.id, id));
+      }
       if (input.tags !== undefined)
         await this.syncTags(tx, id, input.tags, userId);
     });
@@ -446,6 +473,7 @@ export class TracksService {
   async detail(id: string): Promise<TrackDetailDto> {
     const row = await this.db.query.track.findFirst({
       where: eq(track.id, id),
+      with: { album: true },
     });
     if (!row) throw new NotFoundException('Track not found');
 
@@ -501,6 +529,7 @@ export class TracksService {
       id: row.id,
       name: row.name,
       tags,
+      album: row.album?.name ?? null,
       status: row.status,
       licenseCount: rollup?.licenseCount ?? 0,
       lifetimeSales: rollup?.lifetimeSales ?? '0',

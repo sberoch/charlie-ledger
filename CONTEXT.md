@@ -42,7 +42,8 @@ bill-to, customer.
 A piece of music in Charlie's catalog. Created, edited, and removed directly in the platform
 (the Disco mirror was retired before launch); seeding only handles the initial catalog load.
 Its **name** is the natural key — **case-insensitively unique**. Tags are platform-owned
-**Tags** assigned on the Track (pick-or-create), not an attribute baked into the Track.
+**Tags** assigned on the Track (pick-or-create), not an attribute baked into the Track. A Track
+belongs to at most one [[album]] (or none: "No album").
 `status` (active / archived) is a manual catalog state, changed only via the **Archive /
 Unarchive** action — never an edit field. A Track can be **archived** (reversible; retires it
 from the default catalog view) at any time, but **hard-deleted only when it carries no
@@ -143,6 +144,22 @@ A Track carries zero or more; the same Tag is shared across Tracks
 cascade). Powers the tag-chip filter and the **Tag trend**. Was previously owned by Disco;
 ownership moved to the platform when the Disco mirror was retired.
 _Avoid_: Genre, keyword, label.
+
+**Album**:
+The library release a [[track]] was ingested under in Charlie's production library
+("Heads Down Thumbs Up", "Prologue :: Cartography"). Platform-owned, case-insensitively
+unique, pick-or-create from the Track form, renamed and deleted from Settings. A Track
+belongs to **at most one** Album (a one-to-many, unlike Tags); a Track with none is
+**"No album"** — the state of custom-written and stub tracks that never went into a
+library release. **Album income** is the sum over its Tracks (archived ones included —
+history does not move) of their Sales plus the [[royalty payment]]s attributed to them,
+always shown as the pair **Sales / Royalties** and their total, never blended. "No album"
+Tracks are never counted toward any Album; on the [[report (sales report)]] they fall
+into a "— No album" bucket so Album rows still partition the total, but that bucket is
+never presented as an Album anywhere else. Deleting an Album returns its Tracks to "No album"
+(confirm-then-cascade). Albums were backfilled once from Charlie's ingestion sheet; new
+Tracks get an Album by hand.
+_Avoid_: Release, collection, library (the whole catalog), tag.
 
 **License**:
 A grant of a Track's use to a Brand under specific terms (one or more **Usage Types**, term

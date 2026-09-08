@@ -1,5 +1,9 @@
 import { z } from "zod"
-import { IsoDateSchema, MoneySchema, SignedMoneySchema } from "../domain/primitives"
+import {
+  IsoDateSchema,
+  MoneySchema,
+  SignedMoneySchema,
+} from "../domain/primitives"
 
 // Sales report — dual basis, COMMITMENT by default: live invoices anchored on
 // issue_date, paid or not (voided excluded) — the same anchor as the dashboard
@@ -20,6 +24,11 @@ export const ReportGroupBySchema = z.enum([
   "payer",
   "track",
   "usage_type",
+  // One row per Album (CONTEXT.md "Album"): sales through each track's album,
+  // with "— No album" catching trackless / demo / album-less money so Σ rows
+  // still equals the grand total. The only grouping that ALSO carries
+  // royalties per row (see `royaltyTotal` / `incomeTotal` on the row).
+  "album",
   // One row per live invoice — the finest partition (Σ rows = grand total,
   // like brand/payer/track). Feeds the dashboard's month-income dialog, which
   // renders this same pull so the box and its breakdown can never drift.
@@ -32,6 +41,7 @@ export const REPORT_GROUP_BY_LABELS: Record<ReportGroupBy, string> = {
   payer: "Payer",
   track: "Track",
   usage_type: "Usage Type",
+  album: "Album",
   invoice: "Invoice",
 }
 
@@ -74,6 +84,11 @@ export const ReportRowSchema = z.object({
   invoiceCount: z.number().int(),
   /** Signed: a net-negative lead can pull a row below zero. */
   total: SignedMoneySchema,
+  /** Album grouping only — royalty payments in range attributed to the
+   *  album's tracks (anchored on their own date, basis-independent). */
+  royaltyTotal: MoneySchema.optional(),
+  /** Album grouping only — `total` + `royaltyTotal`. */
+  incomeTotal: SignedMoneySchema.optional(),
 })
 export type ReportRowDto = z.infer<typeof ReportRowSchema>
 

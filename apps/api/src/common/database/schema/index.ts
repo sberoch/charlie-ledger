@@ -6,6 +6,7 @@ export * from './enums';
 export * from './brand-category';
 export * from './brand';
 export * from './payer';
+export * from './album';
 export * from './track';
 export * from './tag';
 export * from './license';

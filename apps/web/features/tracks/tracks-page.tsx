@@ -2,8 +2,12 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { formatMoney, type TrackStatus } from "@workspace/shared"
+import { useRouter, useSearchParams } from "next/navigation"
+import {
+  NO_ALBUM_FILTER,
+  formatMoney,
+  type TrackStatus,
+} from "@workspace/shared"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -12,6 +16,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { FilterChips } from "@/components/filter-chips"
 import { PageHeader } from "@/components/shell/page-header"
 import { formatDate } from "@/lib/format"
+import { useAlbums } from "@/features/settings/albums-hooks"
 import { useTracks, useTrackTags } from "./hooks"
 import { TrackExportDialog } from "./track-export-dialog"
 import { TrackImportButton } from "./track-import-button"
@@ -35,16 +40,31 @@ export function lensToQuery(lens: TrackLens | null) {
 
 export function TracksPage() {
   const router = useRouter()
+  const params = useSearchParams()
   const [tag, setTag] = useState<string | null>(null)
+  // Album filter: a name, or NO_ALBUM_FILTER for the album-less tracks. The
+  // track detail page deep-links here with ?album=… (CONTEXT.md "Album").
+  const [albumFilter, setAlbumFilter] = useState<string | null>(
+    params.get("album")
+  )
   const [search, setSearch] = useState("")
   // Default to the working catalog; `null` is the "All" lens. See ADR-0006.
   const [status, setStatus] = useState<TrackLens | null>("active")
   const { data: tags = [] } = useTrackTags()
+  const { data: albums = [] } = useAlbums()
   const { data: tracks, isPending } = useTracks({
     tag: tag ?? undefined,
+    album: albumFilter ?? undefined,
     search: search || undefined,
     ...lensToQuery(status),
   })
+
+  // The literal "how much has this album generated" answer — lifetime, all
+  // tracks (archived included), independent of the status lens and search.
+  const selectedAlbum =
+    albumFilter && albumFilter !== NO_ALBUM_FILTER
+      ? albums.find((a) => a.name === albumFilter)
+      : undefined
 
   return (
     <div>
@@ -55,6 +75,7 @@ export function TracksPage() {
         <TrackExportDialog
           tags={tags}
           currentTag={tag}
+          album={albumFilter}
           search={search}
           status={status}
         />
@@ -74,6 +95,17 @@ export function TracksPage() {
           variant="select"
         />
         <FilterChips
+          label="Album"
+          options={[
+            ...albums.map((a) => ({ value: a.name, label: a.name })),
+            { value: NO_ALBUM_FILTER, label: "No album" },
+          ]}
+          value={albumFilter}
+          onChange={setAlbumFilter}
+          allLabel="All Albums"
+          variant="select"
+        />
+        <FilterChips
           label="Status"
           options={STATUS_OPTIONS}
           value={status}
@@ -88,6 +120,43 @@ export function TracksPage() {
           className="lg:ml-auto lg:max-w-56"
         />
       </div>
+
+      {selectedAlbum ? (
+        <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-2 border border-foreground bg-card px-4 py-3">
+          <span className="font-heading text-lg tracking-tight">
+            {selectedAlbum.name}
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {selectedAlbum.trackCount} track
+            {selectedAlbum.trackCount === 1 ? "" : "s"}
+          </span>
+          <span className="ml-auto flex flex-wrap gap-x-6 gap-y-1 text-right text-sm tabular-nums">
+            <span>
+              <span className="mr-2 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+                Sales
+              </span>
+              {formatMoney(selectedAlbum.lifetimeSales)}
+            </span>
+            <span>
+              <span className="mr-2 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+                Royalties
+              </span>
+              {formatMoney(selectedAlbum.lifetimeRoyalties)}
+            </span>
+            <span className="font-semibold">
+              <span className="mr-2 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
+                Lifetime
+              </span>
+              {formatMoney(
+                (
+                  Number(selectedAlbum.lifetimeSales) +
+                  Number(selectedAlbum.lifetimeRoyalties)
+                ).toFixed(2)
+              )}
+            </span>
+          </span>
+        </div>
+      ) : null}
 
       {isPending ? (
         <div className="flex flex-col gap-2">
@@ -119,8 +188,8 @@ export function TracksPage() {
                       </Badge>
                     ) : null}
                     <span className="mt-0.5 block truncate text-[11px] tracking-[0.04em] text-muted-foreground">
-                      {track.licenseCount} licenses ·{" "}
-                      {track.tags.slice(0, 3).join(", ")}
+                      {track.album ?? "No album"} · {track.licenseCount}{" "}
+                      licenses · {track.tags.slice(0, 3).join(", ")}
                     </span>
                   </span>
                   <span className="text-sm font-semibold tabular-nums">
@@ -161,13 +230,21 @@ export function TracksPage() {
                     track.status === "archived" && "text-muted-foreground"
                   )}
                 >
-                  <td className="px-3.5 py-4 font-semibold">
-                    {track.name}
+                  <td className="px-3.5 py-4">
+                    <span className="font-semibold">{track.name}</span>
                     {track.status === "archived" ? (
                       <Badge variant="expired" className="ml-2">
                         Archived
                       </Badge>
                     ) : null}
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11px] tracking-[0.04em] text-muted-foreground",
+                        !track.album && "italic"
+                      )}
+                    >
+                      {track.album ?? "No album"}
+                    </span>
                   </td>
                   <td className="px-3.5 py-4">
                     {/* Cap chips so a many-tagged track stays one row; the full

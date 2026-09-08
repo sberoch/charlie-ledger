@@ -37,6 +37,10 @@ export function ReportsPage() {
     enabled,
   })
 
+  // Album rows carry royalties beside sales (CONTEXT.md "Album") — two extra
+  // columns; the section total below stays sales-only so the partition holds.
+  const byAlbum = report?.groupBy === "album"
+
   const exportAs = (ext: "csv" | "pdf") =>
     downloadFile(
       `/reports/sales.${ext}?from=${from}&to=${to}&groupBy=${groupBy}&basis=${basis}&includeLeads=${includeLeads}`,
@@ -123,6 +127,16 @@ export function ReportsPage() {
                     {REPORT_GROUP_BY_LABELS[report.groupBy]}
                   </th>
                   <th className="px-4 py-3 text-right font-medium">Invoices</th>
+                  {byAlbum ? (
+                    <>
+                      <th className="px-4 py-3 text-right font-medium">
+                        Sales
+                      </th>
+                      <th className="px-4 py-3 text-right font-medium">
+                        Royalties
+                      </th>
+                    </>
+                  ) : null}
                   <th className="px-4 py-3 text-right font-medium">Total</th>
                 </tr>
               </thead>
@@ -136,15 +150,27 @@ export function ReportsPage() {
                     <td className="px-4 py-3.5 text-right text-muted-foreground tabular-nums">
                       {row.invoiceCount}
                     </td>
+                    {byAlbum ? (
+                      <>
+                        <td className="px-4 py-3.5 text-right tabular-nums">
+                          {formatMoney(row.total)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right tabular-nums">
+                          {formatMoney(row.royaltyTotal ?? "0.00")}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="px-4 py-3.5 text-right font-semibold tabular-nums">
-                      {formatMoney(row.total)}
+                      {formatMoney(
+                        byAlbum ? (row.incomeTotal ?? row.total) : row.total
+                      )}
                     </td>
                   </tr>
                 ))}
                 {report.rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={byAlbum ? 5 : 3}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                     >
                       {report.basis === "cash"
@@ -162,14 +188,33 @@ export function ReportsPage() {
                       {report.basis === "cash" ? "paid invoices" : "invoices"}
                     </td>
                     <td />
-                    <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">
-                      {formatMoney(report.grandTotal)}
-                    </td>
+                    {byAlbum ? (
+                      <>
+                        <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">
+                          {formatMoney(report.grandTotal)}
+                        </td>
+                        <td />
+                        <td />
+                      </>
+                    ) : (
+                      <td className="px-4 py-3.5 text-right font-heading text-lg tracking-tight">
+                        {formatMoney(report.grandTotal)}
+                      </td>
+                    )}
                   </tr>
                 </tfoot>
               ) : null}
             </table>
           </div>
+
+          {byAlbum && report.rows.length > 0 ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Each album row shows its sales plus the royalties attributed to
+              its tracks. &ldquo;— No album&rdquo; holds custom, stub and demo
+              income. The Sales column sums to the sales total; royalties are
+              also listed by payer below.
+            </p>
+          ) : null}
 
           {report.groupBy === "usage_type" && report.rows.length > 0 ? (
             <p className="mt-2 text-[11px] text-muted-foreground">

@@ -8,10 +8,16 @@ import {
   licenseTitle,
   type ReportQuery,
   type ReportResultDto,
+  type ReportRowDto,
 } from '@workspace/shared';
 import type { Db } from '../common/database/db';
 import { DrizzleProvider } from '../common/database/drizzle.module';
 import { invoice, lead, royaltyPayment } from '../common/database/schema';
+
+/** The "— No album" bucket of the album grouping (CONTEXT.md "Album"). */
+const NO_ALBUM = '— No album';
+
+type ReportTrack = { name: string; album: { name: string } | null };
 
 /**
  * Sales report — dual basis, COMMITMENT by default (ADR-0012): live invoices
@@ -24,6 +30,12 @@ import { invoice, lead, royaltyPayment } from '../common/database/schema';
  * groupings, so the partition math above stays intact. Basis doesn't touch
  * them (a royalty payment IS money received). The summary reads
  * Sales / Royalties / Total income.
+ *
+ * The one exception is the ALBUM grouping (CONTEXT.md "Album"): each album
+ * row carries its sales AND the royalties attributed to its tracks, side by
+ * side with their sum — never blended into `total`, so Σ rows.total is still
+ * the sales grand total. Money that reaches no album (trackless WFH, demos,
+ * album-less tracks, unattributed royalties) pools into "— No album".
  */
 @Injectable()
 export class ReportsService {
@@ -45,7 +57,9 @@ export class ReportsService {
               lte(invoice.paidDate, query.to),
             ),
       with: {
-        license: { with: { brand: true, payer: true, track: true } },
+        license: {
+          with: { brand: true, payer: true, track: { with: { album: true } } },
+        },
         demo: { with: { brand: true, payer: true } },
       },
     });
@@ -78,8 +92,14 @@ export class ReportsService {
         ),
         with: {
           brand: true,
-          track: true,
-          license: { with: { brand: true, payer: true, track: true } },
+          track: { with: { album: true } },
+          license: {
+            with: {
+              brand: true,
+              payer: true,
+              track: { with: { album: true } },
+            },
+          },
           demo: { with: { brand: true, payer: true } },
         },
       });
@@ -95,22 +115,44 @@ export class ReportsService {
       }
     }
 
-    const rows = [...groups.entries()]
-      .map(([label, { count, total }]) => ({
-        label,
-        invoiceCount: count,
-        total: total.toFixed(2),
-      }))
-      .sort((a, b) => Number(b.total) - Number(a.total));
-
     // ── Royalties section (ADR-0009): in-range payments, by Payer ──
     const royalties = await this.db.query.royaltyPayment.findMany({
       where: and(
         gte(royaltyPayment.paymentDate, query.from),
         lte(royaltyPayment.paymentDate, query.to),
       ),
-      with: { payer: true },
+      with: { payer: true, track: { with: { album: true } } },
     });
+
+    // Album grouping: royalties reach an album through their track and ride
+    // on the row beside sales (CONTEXT.md "Album"). An album with royalties
+    // but no sales in range still gets a row.
+    const albumRoyalties = new Map<string, number>();
+    if (query.groupBy === 'album')
+      for (const r of royalties) {
+        const label = r.track?.album?.name ?? NO_ALBUM;
+        albumRoyalties.set(
+          label,
+          (albumRoyalties.get(label) ?? 0) + Number(r.amount),
+        );
+        if (!groups.has(label)) groups.set(label, { count: 0, total: 0 });
+      }
+
+    const rows = [...groups.entries()]
+      .map(([label, { count, total }]): ReportRowDto => {
+        const row = { label, invoiceCount: count, total: total.toFixed(2) };
+        if (query.groupBy !== 'album') return row;
+        const royaltyTotal = albumRoyalties.get(label) ?? 0;
+        return {
+          ...row,
+          royaltyTotal: royaltyTotal.toFixed(2),
+          incomeTotal: (total + royaltyTotal).toFixed(2),
+        };
+      })
+      .sort(
+        (a, b) =>
+          Number(b.incomeTotal ?? b.total) - Number(a.incomeTotal ?? a.total),
+      );
     const royaltyGroups = new Map<string, { count: number; total: number }>();
     for (const r of royalties) {
       const entry = royaltyGroups.get(r.payer.name) ?? { count: 0, total: 0 };
@@ -155,7 +197,7 @@ export class ReportsService {
       license: {
         brand: { name: string };
         payer: { name: string };
-        track: { name: string } | null;
+        track: ReportTrack | null;
         usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
       demo: {
@@ -185,17 +227,23 @@ export class ReportsService {
           // Trackless work_for_hire licenses (ADR-0013) get their own bucket,
           // like "— Demos" below, so Σ rows still equals the grand total.
           return [inv.license.track?.name ?? '— WFH'];
+        case 'album':
+          // Trackless and album-less alike pool into "— No album".
+          return [inv.license.track?.album?.name ?? NO_ALBUM];
         case 'usage_type':
           // Fan-out: one label per medium the license grants.
           return inv.license.usageTypes.map((u) => USAGE_TYPE_LABELS[u]);
       }
     }
-    // Demo invoices: brand/payer group naturally; track/usage get one bucket.
+    // Demo invoices: brand/payer group naturally; track/usage get one bucket,
+    // and under album they are album-less by definition.
     switch (groupBy) {
       case 'brand':
         return [inv.demo!.brand.name];
       case 'payer':
         return [inv.demo!.payer.name];
+      case 'album':
+        return [NO_ALBUM];
       default:
         return ['— Demos'];
     }
@@ -211,11 +259,11 @@ export class ReportsService {
   private leadGroupLabels(
     l: {
       brand: { name: string } | null;
-      track: { name: string } | null;
+      track: ReportTrack | null;
       license: {
         brand: { name: string };
         payer: { name: string };
-        track: { name: string } | null;
+        track: ReportTrack | null;
         usageTypes: (keyof typeof USAGE_TYPE_LABELS)[];
       } | null;
       demo: { brand: { name: string }; payer: { name: string } } | null;
@@ -242,6 +290,11 @@ export class ReportsService {
         // Demos have no track, so only a direct or license track resolves —
         // and a trackless license (ADR-0013) resolves nothing either.
         return [l.track?.name ?? l.license?.track?.name ?? FALLBACK];
+      case 'album':
+        // A lead that reaches no album is album-less money, not a lead bucket.
+        return [
+          l.track?.album?.name ?? l.license?.track?.album?.name ?? NO_ALBUM,
+        ];
       case 'usage_type':
         if (l.license)
           return l.license.usageTypes.map((u) => USAGE_TYPE_LABELS[u]);
@@ -251,17 +304,46 @@ export class ReportsService {
 
   toCsv(result: ReportResultDto): string {
     const esc = (v: string) => `"${v.replaceAll('"', '""')}"`;
-    const lines = [
-      [
-        'Group',
-        result.basis === 'commitment' ? 'Invoices' : 'Paid invoices',
-        'Total (USD)',
-      ].join(','),
-      ...result.rows.map((r) =>
-        [esc(r.label), String(r.invoiceCount), r.total].join(','),
-      ),
-      ['SALES TOTAL', String(result.invoiceCount), result.grandTotal].join(','),
-    ];
+    const byAlbum = result.groupBy === 'album';
+    const invoicesHead =
+      result.basis === 'commitment' ? 'Invoices' : 'Paid invoices';
+    // Album rows carry royalties beside sales (see class doc); the sales
+    // column keeps its partition, and the section total stays sales-only.
+    const lines = byAlbum
+      ? [
+          [
+            'Group',
+            invoicesHead,
+            'Sales (USD)',
+            'Royalties (USD)',
+            'Total (USD)',
+          ].join(','),
+          ...result.rows.map((r) =>
+            [
+              esc(r.label),
+              String(r.invoiceCount),
+              r.total,
+              r.royaltyTotal ?? '0.00',
+              r.incomeTotal ?? r.total,
+            ].join(','),
+          ),
+          [
+            'SALES TOTAL',
+            String(result.invoiceCount),
+            result.grandTotal,
+            '',
+            '',
+          ].join(','),
+        ]
+      : [
+          ['Group', invoicesHead, 'Total (USD)'].join(','),
+          ...result.rows.map((r) =>
+            [esc(r.label), String(r.invoiceCount), r.total].join(','),
+          ),
+          ['SALES TOTAL', String(result.invoiceCount), result.grandTotal].join(
+            ',',
+          ),
+        ];
     // Royalties: a separate section, never blended into the sales rows above
     // (ADR-0009). Grouped by payer; column 2 counts payments, not invoices.
     if (result.royaltyRows.length > 0) {

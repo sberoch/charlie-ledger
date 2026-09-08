@@ -22,6 +22,8 @@ export const TrackListItemSchema = z.object({
   id: UuidSchema,
   name: z.string(),
   tags: z.array(z.string()),
+  /** The library release this track belongs to; null = "No album". */
+  album: z.string().nullable(),
   status: TrackStatusSchema,
   licenseCount: z.number().int(),
   /** Lifetime sales — Σ License fees, commitment basis. */
@@ -43,6 +45,8 @@ export const TrackListQuerySchema = z.object({
   /** Comma-separated terms, any of which matches the name (splitSearchTerms). */
   search: z.string().trim().min(1).optional(),
   tag: z.string().optional(),
+  /** An album name, or NO_ALBUM_FILTER for the tracks that have none. */
+  album: z.string().optional(),
   status: TrackStatusSchema.optional(),
   /** "Sell this" lens — active Tracks whose Sell signal fires. A filter over
    *  the derived flag, never a fourth status (CONTEXT.md "Sell signal"). */
@@ -64,11 +68,15 @@ export const CreateTrackSchema = z.object({
   // Always present (the form sends `[]` for an untagged track); kept required —
   // not defaulted — so the RHF input/output types stay identical.
   tags: z.array(z.string().trim().min(1).max(80)),
+  // Album by NAME, resolved server-side via case-insensitive pick-or-create
+  // (an unknown name mints a new Album). Null = "No album".
+  album: z.string().trim().min(1).max(120).nullable(),
 })
 export type CreateTrackInput = z.infer<typeof CreateTrackSchema>
 
 // Update — same shape, all optional. An omitted `tags` leaves assignments
-// untouched; an empty array clears them.
+// untouched; an empty array clears them. An omitted `album` leaves it alone;
+// null clears it to "No album".
 export const UpdateTrackSchema = CreateTrackSchema.partial()
 export type UpdateTrackInput = z.infer<typeof UpdateTrackSchema>
 

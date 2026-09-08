@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
-import { tag, track, trackTag } from '../schema';
+import { album, tag, track, trackTag } from '../schema';
 import { seedTags } from './seed-tags';
 
 // Tier 1 seed — the mock catalog, runs everywhere including prod at launch.
@@ -19,26 +19,84 @@ import { seedTags } from './seed-tags';
 // the nearest mood equivalent here — otherwise the reconcile below skips them
 // silently and the catalog seeds untagged, which empties the dashboard's tag
 // donut (ADR-0014).
-const TRACKS: Array<{ name: string; tags: string[] }> = [
-  { name: 'Empire', tags: ['dramatic', 'building', 'epic'] },
-  { name: 'Cartography', tags: ['dramatic', 'epic', 'atmospheric'] },
-  { name: 'Northern Air', tags: ['dramatic', 'sad', 'minimal'] },
-  { name: 'Departure', tags: ['organic', 'reflective', 'warm'] },
-  { name: 'Tessellate', tags: ['minimal', 'building', 'intense'] },
-  { name: 'Reset Self', tags: ['hopeful', 'building', 'upbeat'] },
-  { name: 'Last Frost', tags: ['solemn', 'sad', 'minimal'] },
-  { name: 'Glass Pavilion', tags: ['atmospheric', 'reflective', 'relaxed'] },
+// Albums mirror the real catalog's shape (CONTEXT.md "Album"): a few library
+// releases, plus some tracks left album-less — the custom / stub case.
+const TRACKS: Array<{ name: string; tags: string[]; album?: string }> = [
+  { name: 'Empire', tags: ['dramatic', 'building', 'epic'], album: 'Colony' },
+  {
+    name: 'Cartography',
+    tags: ['dramatic', 'epic', 'atmospheric'],
+    album: 'Prologue :: Cartography',
+  },
+  {
+    name: 'Northern Air',
+    tags: ['dramatic', 'sad', 'minimal'],
+    album: 'Prologue :: Cartography',
+  },
+  {
+    name: 'Departure',
+    tags: ['organic', 'reflective', 'warm'],
+    album: 'Departure EP',
+  },
+  {
+    name: 'Tessellate',
+    tags: ['minimal', 'building', 'intense'],
+    album: 'Colony',
+  },
+  {
+    name: 'Reset Self',
+    tags: ['hopeful', 'building', 'upbeat'],
+    album: 'Optimistic',
+  },
+  {
+    name: 'Last Frost',
+    tags: ['solemn', 'sad', 'minimal'],
+    album: 'Prologue :: Cartography',
+  },
+  {
+    name: 'Glass Pavilion',
+    tags: ['atmospheric', 'reflective', 'relaxed'],
+    album: 'Reflections',
+  },
   { name: 'Static Field', tags: ['tension', 'gritty', 'intense'] },
-  { name: 'Colony', tags: ['dark', 'building', 'powerful'] },
-  { name: 'Ironwood', tags: ['organic', 'motivating', 'warm'] },
-  { name: 'Halflight', tags: ['dreamy', 'romantic', 'warm'] },
-  { name: 'Slow Bloom', tags: ['atmospheric', 'organic', 'emotive'] },
-  { name: 'Open Water', tags: ['hopeful', 'epic', 'inspiring'] },
-  { name: 'Paper Lanterns', tags: ['dreamy', 'hopeful', 'organic'] },
+  { name: 'Colony', tags: ['dark', 'building', 'powerful'], album: 'Colony' },
+  {
+    name: 'Ironwood',
+    tags: ['organic', 'motivating', 'warm'],
+    album: 'Departure EP',
+  },
+  {
+    name: 'Halflight',
+    tags: ['dreamy', 'romantic', 'warm'],
+    album: 'Reflections',
+  },
+  {
+    name: 'Slow Bloom',
+    tags: ['atmospheric', 'organic', 'emotive'],
+    album: 'Reflections',
+  },
+  {
+    name: 'Open Water',
+    tags: ['hopeful', 'epic', 'inspiring'],
+    album: 'Optimistic',
+  },
+  {
+    name: 'Paper Lanterns',
+    tags: ['dreamy', 'hopeful', 'organic'],
+    album: 'Optimistic',
+  },
   // Five generated to round out the catalog to 20.
-  { name: 'Vermillion', tags: ['dramatic', 'tension', 'epic'] },
+  {
+    name: 'Vermillion',
+    tags: ['dramatic', 'tension', 'epic'],
+    album: 'Colony',
+  },
   { name: 'Low Tide', tags: ['chill', 'organic', 'relaxed'] },
-  { name: 'Night Market', tags: ['colorful', 'bubbly', 'upbeat'] },
+  {
+    name: 'Night Market',
+    tags: ['colorful', 'bubbly', 'upbeat'],
+    album: 'Optimistic',
+  },
   { name: 'Sandstone', tags: ['warm', 'organic', 'retro'] },
   { name: 'Meridian', tags: ['epic', 'inspiring', 'triumphant'] },
 ];
@@ -51,14 +109,28 @@ export async function seedTracks() {
   const tagRows = await db.select({ id: tag.id, name: tag.name }).from(tag);
   const tagIdByName = new Map(tagRows.map((r) => [r.name, r.id]));
 
+  // Albums: pick-or-create by name (same lower(name) natural key as track).
+  const albumIdByName = new Map<string, string>();
+  for (const name of new Set(
+    TRACKS.map((t) => t.album).filter((a): a is string => a !== undefined),
+  )) {
+    await db.insert(album).values({ name }).onConflictDoNothing();
+    const row = await db.query.album.findFirst({
+      where: sql`lower(${album.name}) = lower(${name})`,
+    });
+    if (!row) throw new Error(`Seed album upsert failed: ${name}`);
+    albumIdByName.set(name, row.id);
+  }
+
   for (const t of TRACKS) {
     // Upsert by name (the natural key). The unique index is on lower(name), an
     // expression index a conflict target can't be passed to directly (same as
     // tag_name_uq) — so insert with bare DO NOTHING, then resolve + reactivate
     // the existing row on conflict.
+    const albumId = t.album ? (albumIdByName.get(t.album) ?? null) : null;
     const [inserted] = await db
       .insert(track)
-      .values({ name: t.name })
+      .values({ name: t.name, albumId })
       .onConflictDoNothing()
       .returning({ id: track.id });
     let row = inserted;
@@ -69,7 +141,7 @@ export async function seedTracks() {
       if (!existing) throw new Error(`Seed track upsert failed: ${t.name}`);
       await db
         .update(track)
-        .set({ status: 'active' })
+        .set({ status: 'active', albumId })
         .where(eq(track.id, existing.id));
       row = { id: existing.id };
     }
