@@ -6,6 +6,7 @@ import {
   formatUsageTypes,
   daysBetween,
   expirationState,
+  isReadyToReuse,
   licenseTitle,
   todayIso,
   type ActivityItemDto,
@@ -70,8 +71,12 @@ export class DashboardService {
           fee: l.fee,
           urgency: expirationState(l.endDate, today).urgency,
         })),
+      // Shelved demos never resurface — not here, not in Ready to reuse.
       ...demos
-        .filter((d) => d.status === 'open' && d.holdEndsAt > today)
+        .filter(
+          (d) =>
+            d.status === 'open' && d.shelvedAt === null && d.holdEndsAt > today,
+        )
         .map((d) => ({
           kind: 'demo_hold_lift' as const,
           sourceId: d.id,
@@ -151,7 +156,7 @@ export class DashboardService {
 
     // ── Ready to reuse ──
     const readyDemos = demos
-      .filter((d) => d.status === 'open' && d.holdEndsAt <= today)
+      .filter((d) => isReadyToReuse(d, today))
       .sort((a, b) => (a.holdEndsAt < b.holdEndsAt ? -1 : 1))
       .slice(0, 5)
       .map((d) => ({

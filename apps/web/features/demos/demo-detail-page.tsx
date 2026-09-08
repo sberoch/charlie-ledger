@@ -29,7 +29,13 @@ import { useTracks } from "@/features/tracks/hooks"
 import { downloadFile } from "@/lib/api"
 import { formatDate } from "@/lib/format"
 import { HoldBadge } from "./demos-page"
-import { useConvertDemo, useDemo, useLinkConvertedTrack } from "./hooks"
+import { ShelveDemoDialog } from "./shelve-demo-dialog"
+import {
+  useConvertDemo,
+  useDemo,
+  useLinkConvertedTrack,
+  useSetDemoShelved,
+} from "./hooks"
 
 function Fact({
   label,
@@ -54,6 +60,7 @@ export function DemoDetailPage({ id }: { id: string }) {
   const { data: tracks = [] } = useTracks()
   const convert = useConvertDemo(id)
   const linkTrack = useLinkConvertedTrack(id)
+  const setShelved = useSetDemoShelved(id)
   const [linking, setLinking] = useState(false)
 
   if (isPending || !demo) return <Skeleton className="h-64" />
@@ -112,40 +119,73 @@ export function DemoDetailPage({ id }: { id: string }) {
           {demo.status === "open" ? (
             <div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                {demo.holdLifted
-                  ? "The hold has lifted. This idea is free to become a library track."
-                  : `Hold lifts ${formatDate(demo.holdEndsAt)}. Converting earlier is allowed. The hold is advisory.`}
+                {demo.shelvedAt
+                  ? "Shelved. Off the Ready to Reuse list until unshelved."
+                  : demo.holdLifted
+                    ? "The hold has lifted. This idea is free to become a library track."
+                    : `Hold lifts ${formatDate(demo.holdEndsAt)}. Converting earlier is allowed. The hold is advisory.`}
               </p>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" size="sm" className="mt-3">
-                    Convert to track idea
+              <div className="mt-3 flex flex-wrap gap-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" size="sm">
+                      Convert to track idea
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Convert this demo?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Marks the idea as headed for the library. No track needs
+                        to exist yet — build it in Disco afterwards and link it
+                        here whenever.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() =>
+                          convert
+                            .mutateAsync({})
+                            .then(() => toast.success("Demo converted"))
+                            .catch((e) => toast.error(e.message))
+                        }
+                      >
+                        Convert
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                {demo.shelvedAt ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={setShelved.isPending}
+                    onClick={() =>
+                      setShelved
+                        .mutateAsync(false)
+                        .then(() => toast.success("Demo unshelved"))
+                        .catch((e) => toast.error(e.message))
+                    }
+                  >
+                    Unshelve
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Convert this demo?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Marks the idea as headed for the library. No track needs
-                      to exist yet — build it in Disco afterwards and link it
-                      here whenever.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        convert
-                          .mutateAsync({})
-                          .then(() => toast.success("Demo converted"))
-                          .catch((e) => toast.error(e.message))
-                      }
-                    >
-                      Convert
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                ) : (
+                  <ShelveDemoDialog
+                    onConfirm={() =>
+                      setShelved
+                        .mutateAsync(true)
+                        .then(() => toast.success("Demo shelved"))
+                        .catch((e) => toast.error(e.message))
+                    }
+                  >
+                    <Button type="button" size="sm" variant="outline">
+                      Shelve
+                    </Button>
+                  </ShelveDemoDialog>
+                )}
+              </div>
             </div>
           ) : (
             <div>

@@ -63,6 +63,17 @@ export class DemosController {
     return this.demos.convert(id, body);
   }
 
+  /** Shelve — off Ready to Reuse, still open (CONTEXT.md "Shelved"). */
+  @Post(':id/shelve')
+  shelve(@Param('id') id: string) {
+    return this.demos.setShelved(id, true);
+  }
+
+  @Post(':id/unshelve')
+  unshelve(@Param('id') id: string) {
+    return this.demos.setShelved(id, false);
+  }
+
   /** Optional lineage link, set or cleared any time after conversion. */
   @Patch(':id/converted-track')
   linkTrack(

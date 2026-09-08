@@ -22,6 +22,9 @@ export const DemoSchema = z.object({
   status: DemoStatusSchema,
   /** True once holdEndsAt has passed while still `open` — eligible to convert. */
   holdLifted: z.boolean(),
+  /** Set when Charlie shelves the idea (CONTEXT.md "Shelved"): still `open`,
+   *  but off every Ready-to-reuse surface until unshelved or converted. */
+  shelvedAt: z.string().nullable(),
   convertedTrackId: UuidSchema.nullable(),
   convertedTrackName: z.string().nullable(),
   notes: z.string().nullable(),
@@ -71,8 +74,10 @@ export type LinkConvertedTrackInput = z.infer<typeof LinkConvertedTrackSchema>
 
 export const DemoListQuerySchema = z.object({
   status: DemoStatusSchema.optional(),
-  /** `true` → only open demos whose hold has lifted (ready to reuse). */
+  /** `true` → only open, unshelved demos whose hold has lifted (ready to reuse). */
   readyToConvert: z.coerce.boolean().optional(),
+  /** `true` → only shelved demos. */
+  shelved: z.coerce.boolean().optional(),
   search: z.string().trim().min(1).optional(),
 })
 export type DemoListQuery = z.infer<typeof DemoListQuerySchema>

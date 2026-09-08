@@ -114,6 +114,7 @@ export class DigestService {
         .filter(
           (d) =>
             d.status === 'open' &&
+            d.shelvedAt === null &&
             d.holdEndsAt >= today &&
             d.holdEndsAt <= horizon,
         )

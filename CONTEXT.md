@@ -207,8 +207,10 @@ Track's **creation date** when it has never been licensed. It marks dead catalog
 a track that hasn't moved in years — nudging Charlie to sell it. Surfaced as a red ("rust")
 badge appended **after** the tag chips wherever a Track's tags show, but it is **not a [[tag]]**
 and has no relationship to the catalog tag vocabulary — it merely shares their visual slot.
-An archived Track never shows it.
-_Avoid_: Stale tag, sell tag (it is not a Tag), dead-stock flag.
+An archived Track never shows it. Also available as a **lens** on the Tracks list
+("Sell this", alongside All / Active / Archived): the active Tracks whose signal fires —
+a filter over the derived flag, not a fourth Track status.
+_Avoid_: Stale tag, sell tag (it is not a Tag), dead-stock flag, sell status.
 
 **Hold**:
 The wait on a Demo (none / 3mo / 6mo) before Charlie may reuse its idea as a library Track,
@@ -216,6 +218,14 @@ counted from when the demo was written. When the hold **lifts** the Demo becomes
 convert and surfaces on the dashboard — lifting is **not** a status change; only Conversion
 moves a Demo off `open`.
 _Avoid_: Lockout, embargo.
+
+**Shelved**:
+Charlie's decision that an open Demo's idea will **not** be reused for now. Removes the
+Demo from the Ready-to-reuse surfaces (dashboard panel, Demos "Ready to reuse" lens)
+without converting it: the Demo stays `open` — only [[conversion]] moves it off `open` —
+and can be **unshelved** or converted later. Exists mainly so the pre-platform
+[[demo import]] flood can be cleared one decision at a time.
+_Avoid_: Dismissed, ignored, rejected, archived (a Demo is never archived), converted.
 
 ### Billing
 
@@ -402,8 +412,9 @@ summary shows three figures: **Sales**, **Royalties**, and **Total income** (the
 every export (CSV / PDF) states the basis it was pulled on.
 
 **Track export**:
-The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag, status, and
-search filter** so the export always equals the on-screen view — one row per Track, never a
+The Tracks list rendered to a file (CSV or PDF), scoped to the **active tag, status / sell lens, and
+search filter** (a search may hold several comma-separated terms, any of which matches) so
+the export always equals the on-screen view — one row per Track, never a
 per-License breakdown. Carries a **with / without financials** choice (default *without*):
 *without* is a share-safe catalog (`Track · Tags · Status`); *with* adds the
 license-derived columns (`Licenses · Lifetime sales · Last licensed`) and a footer total of

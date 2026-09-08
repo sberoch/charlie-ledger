@@ -6,6 +6,8 @@ import {
   deriveInvoiceStatus,
   expirationState,
   formatInvoiceNumber,
+  isReadyToReuse,
+  splitSearchTerms,
 } from "./derivations"
 import { addMonths, daysBetween, formatMoney } from "./primitives"
 
@@ -118,5 +120,46 @@ describe("primitives", () => {
   it("formatMoney drops cents when whole", () => {
     expect(formatMoney("24500.00")).toBe("$24,500")
     expect(formatMoney("4800.50")).toBe("$4,800.50")
+  })
+})
+
+describe("splitSearchTerms", () => {
+  it("keeps a plain term as-is, spaces included", () => {
+    expect(splitSearchTerms("Slow Burn")).toEqual(["Slow Burn"])
+  })
+
+  it("splits on commas, trims, and drops blanks", () => {
+    expect(splitSearchTerms(" Sketchy , Microcosm,, ")).toEqual([
+      "Sketchy",
+      "Microcosm",
+    ])
+  })
+
+  it("yields nothing for a comma-only box", () => {
+    expect(splitSearchTerms(", ,")).toEqual([])
+  })
+})
+
+describe("isReadyToReuse", () => {
+  const base = { status: "open" as const, holdEndsAt: TODAY, shelvedAt: null }
+
+  it("fires for an open demo whose hold lifted today", () => {
+    expect(isReadyToReuse(base, TODAY)).toBe(true)
+  })
+
+  it("waits for the hold", () => {
+    expect(isReadyToReuse({ ...base, holdEndsAt: "2026-06-13" }, TODAY)).toBe(
+      false
+    )
+  })
+
+  it("never fires once converted", () => {
+    expect(isReadyToReuse({ ...base, status: "converted" }, TODAY)).toBe(false)
+  })
+
+  it("is silenced by shelving, even with the hold lifted", () => {
+    expect(isReadyToReuse({ ...base, shelvedAt: "2026-06-01" }, TODAY)).toBe(
+      false
+    )
   })
 })

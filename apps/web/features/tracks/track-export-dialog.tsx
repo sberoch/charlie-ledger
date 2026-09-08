@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import type { TrackStatus } from "@workspace/shared"
 import { downloadFile } from "@/lib/api"
+import type { TrackLens } from "./tracks-page"
 
 // Radix Select can't carry an empty value, so "All Tags" rides a sentinel.
 const ALL = "__all__"
@@ -34,9 +34,9 @@ export function TrackExportDialog({
   tags: string[]
   currentTag: string | null
   search: string
-  /** The list's active status lens — null = All. The export mirrors it so the
-   *  file equals the on-screen view (CONTEXT.md: "Track export"). */
-  status: TrackStatus | null
+  /** The list's active status / "Sell this" lens — null = All. The export
+   *  mirrors it so the file equals the on-screen view (CONTEXT.md: "Track export"). */
+  status: TrackLens | null
 }) {
   const [open, setOpen] = useState(false)
   const [tag, setTag] = useState(currentTag ?? ALL)
@@ -53,12 +53,15 @@ export function TrackExportDialog({
   const exportAs = (ext: "csv" | "pdf") => {
     const params = new URLSearchParams()
     if (tag !== ALL) params.set("tag", tag)
-    if (status) params.set("status", status)
+    if (status === "sell") params.set("sell", "true")
+    else if (status) params.set("status", status)
     if (search) params.set("search", search)
     if (history) params.set("history", "true")
     if (financials) params.set("financials", "true")
     const qs = params.toString()
-    const slug = tag === ALL ? "all" : tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    const tagSlug =
+      tag === ALL ? "all" : tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    const slug = status === "sell" ? `${tagSlug}_sell-this` : tagSlug
 
     downloadFile(
       `/tracks/export.${ext}${qs ? `?${qs}` : ""}`,

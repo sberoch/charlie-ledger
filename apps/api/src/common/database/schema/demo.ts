@@ -37,6 +37,10 @@ export const demo = pgTable(
     // Seeded from writtenAt + holdPeriod but editable; the timeline indexes it.
     holdEndsAt: date('hold_ends_at').notNull(),
     status: demoStatus('status').notNull().default('open'),
+    // "Shelved" (CONTEXT.md): Charlie parked the idea. Status stays `open` —
+    // only Conversion moves it — but every Ready-to-reuse surface skips it.
+    // Cleared by unshelve or by conversion.
+    shelvedAt: timestamp('shelved_at'),
     // Optional, set any time after conversion — independent of status. The
     // linked Track only exists once Charlie creates it in the platform afterwards.
     convertedTrackId: uuid('converted_track_id').references(() => track.id, {

@@ -1,0 +1,1 @@
+ALTER TABLE "demo" ADD COLUMN "shelved_at" timestamp;

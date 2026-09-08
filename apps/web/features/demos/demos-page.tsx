@@ -12,15 +12,21 @@ import { PageHeader } from "@/components/shell/page-header"
 import { formatDate } from "@/lib/format"
 import { useDemos } from "./hooks"
 
-type DemoFilter = DemoStatus | "ready"
+type DemoFilter = DemoStatus | "ready" | "shelved"
 
 export function HoldBadge({
   demo,
 }: {
-  demo: { status: DemoStatus; holdLifted: boolean; holdEndsAt: string }
+  demo: {
+    status: DemoStatus
+    holdLifted: boolean
+    holdEndsAt: string
+    shelvedAt: string | null
+  }
 }) {
   if (demo.status === "converted")
     return <Badge variant="active">Converted</Badge>
+  if (demo.shelvedAt) return <Badge>Shelved</Badge>
   if (demo.holdLifted) return <Badge variant="warn">Ready to reuse</Badge>
   return <Badge>Hold · lifts {formatDate(demo.holdEndsAt)}</Badge>
 }
@@ -29,8 +35,12 @@ export function DemosPage() {
   const [filter, setFilter] = useState<DemoFilter | null>(null)
   const [search, setSearch] = useState("")
   const { data: demos, isPending } = useDemos({
-    status: filter === "ready" ? "open" : (filter ?? undefined),
+    status:
+      filter === "ready" || filter === "shelved"
+        ? "open"
+        : (filter ?? undefined),
     readyToConvert: filter === "ready" ? true : undefined,
+    shelved: filter === "shelved" ? true : undefined,
     search: search || undefined,
   })
 
@@ -50,6 +60,7 @@ export function DemosPage() {
           options={[
             { value: "open", label: "Open" },
             { value: "ready", label: "Ready to reuse" },
+            { value: "shelved", label: "Shelved" },
             { value: "converted", label: "Converted" },
           ]}
           value={filter}

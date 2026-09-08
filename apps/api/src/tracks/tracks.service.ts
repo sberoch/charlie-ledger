@@ -7,6 +7,7 @@ import {
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   formatLicenseSpan,
+  splitSearchTerms,
   type CreateTrackInput,
   type ImportTracksInput,
   type ImportTracksResultDto,
@@ -46,8 +47,18 @@ export class TracksService {
         join ${tag} on ${tag.id} = ${trackTag.tagId}
         where ${trackTag.trackId} = ${track.id} and ${tag.name} = ${query.tag}
       )`);
-    if (query.search)
-      conditions.push(sql`${track.name} ILIKE ${`%${query.search}%`}`);
+    // Comma-separated terms, ANY of which matches (CONTEXT.md "Track export").
+    const terms = query.search ? splitSearchTerms(query.search) : [];
+    if (terms.length > 0)
+      conditions.push(
+        sql`(${sql.join(
+          terms.map((t) => sql`${track.name} ILIKE ${`%${t}%`}`),
+          sql` OR `,
+        )})`,
+      );
+    // The "Sell this" lens only ever shows active tracks; the signal itself is
+    // derived after the query (it needs the aggregate), so the cut is below.
+    if (query.sell) conditions.push(sql`${track.status} = 'active'`);
 
     const rows = await this.db
       .select({
@@ -74,7 +85,7 @@ export class TracksService {
       .orderBy(sql`coalesce(sum(${license.fee}), 0) DESC`, track.name);
 
     const now = new Date();
-    return rows.map(({ createdAt, ...row }) => ({
+    const items = rows.map(({ createdAt, ...row }) => ({
       ...row,
       createdAt: createdAt.toISOString().slice(0, 10),
       sellRecommended: isSellRecommended(
@@ -82,6 +93,7 @@ export class TracksService {
         now,
       ),
     }));
+    return query.sell ? items.filter((t) => t.sellRecommended) : items;
   }
 
   /**

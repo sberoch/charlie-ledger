@@ -9,13 +9,13 @@ import {
   type CreateTrackInput,
   type ImportTracksInput,
   type TrackDetailDto,
-  type TrackListQuery,
+  type TrackListQueryInput,
   type TrackStatus,
   type UpdateTrackInput,
 } from "@workspace/shared"
 import { api } from "@/lib/api"
 
-export function useTracks(query: TrackListQuery = {}) {
+export function useTracks(query: TrackListQueryInput = {}) {
   return useQuery({
     queryKey: ["tracks", query],
     queryFn: () =>

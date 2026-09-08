@@ -1,4 +1,4 @@
-import type { HoldPeriod, TermLength } from "./enums"
+import type { DemoStatus, HoldPeriod, TermLength } from "./enums"
 import { addDays, addMonths, daysBetween, type IsoDate } from "./primitives"
 
 // ── Expiration urgency ──────────────────────────────────────────────────────
@@ -48,7 +48,9 @@ export function expirationState(
 export const TRACKLESS_LABEL = "WFH"
 
 /** The track slot of a license's display identity: the track name, or "WFH". */
-export function licenseTrackLabel(trackName: string | null | undefined): string {
+export function licenseTrackLabel(
+  trackName: string | null | undefined
+): string {
   return trackName ?? TRACKLESS_LABEL
 }
 
@@ -144,4 +146,30 @@ export function defaultHoldEndsAt(
 /** Default Invoice due date: Net 30. */
 export function defaultDueDate(issueDate: IsoDate): IsoDate {
   return addDays(issueDate, 30)
+}
+
+/**
+ * Multi-term search: a comma-separated box holds several terms, ANY of which
+ * matches (CONTEXT.md "Track export"). Terms are trimmed and blanks dropped,
+ * so a single term without commas behaves exactly like a plain substring search.
+ */
+export function splitSearchTerms(search: string): string[] {
+  return search
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
+}
+
+/**
+ * Ready to reuse: an open Demo whose hold has lifted and that Charlie has not
+ * **shelved** (CONTEXT.md "Shelved"). Drives the dashboard panel and the Demos
+ * "Ready to reuse" lens — both must agree.
+ */
+export function isReadyToReuse(
+  demo: { status: DemoStatus; holdEndsAt: IsoDate; shelvedAt: unknown },
+  today: IsoDate
+): boolean {
+  return (
+    demo.status === "open" && demo.holdEndsAt <= today && demo.shelvedAt == null
+  )
 }

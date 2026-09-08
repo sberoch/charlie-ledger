@@ -9,6 +9,7 @@ import {
   defaultHoldEndsAt,
   demoInvoiceDescription,
   deriveInvoiceStatus,
+  isReadyToReuse,
   todayIso,
   type ConvertDemoInput,
   type CreateDemoInput,
@@ -62,8 +63,8 @@ export class DemosService {
       .map((row) => this.toDto(row as DemoRow, today))
       .filter((dto) => {
         if (query.status && dto.status !== query.status) return false;
-        if (query.readyToConvert && !(dto.status === 'open' && dto.holdLifted))
-          return false;
+        if (query.readyToConvert && !isReadyToReuse(dto, today)) return false;
+        if (query.shelved && dto.shelvedAt === null) return false;
         if (query.search) {
           const haystack =
             `${dto.workingName} ${dto.brandName} ${dto.payerName}`.toLowerCase();
@@ -186,7 +187,28 @@ export class DemosService {
       .set({
         status: 'converted',
         convertedTrackId: input.convertedTrackId ?? null,
+        // A converted demo is never also shelved — one state at a time.
+        shelvedAt: null,
       })
+      .where(eq(demo.id, id));
+    return this.detail(id);
+  }
+
+  /**
+   * Shelve / unshelve — Charlie parks an open idea so it leaves Ready to
+   * Reuse without converting (CONTEXT.md "Shelved"). Allowed on any open
+   * demo, hold lifted or not. Idempotent in both directions.
+   */
+  async setShelved(id: string, shelved: boolean): Promise<DemoDto> {
+    const existing = await this.db.query.demo.findFirst({
+      where: eq(demo.id, id),
+    });
+    if (!existing) throw new NotFoundException('Demo not found');
+    if (existing.status === 'converted')
+      throw new BadRequestException('A converted demo cannot be shelved');
+    await this.db
+      .update(demo)
+      .set({ shelvedAt: shelved ? new Date() : null })
       .where(eq(demo.id, id));
     return this.detail(id);
   }
@@ -231,6 +253,7 @@ export class DemosService {
       holdEndsAt: row.holdEndsAt,
       status: row.status,
       holdLifted: row.holdEndsAt <= today,
+      shelvedAt: row.shelvedAt?.toISOString() ?? null,
       convertedTrackId: row.convertedTrackId,
       convertedTrackName: row.convertedTrack?.name ?? null,
       notes: row.notes,

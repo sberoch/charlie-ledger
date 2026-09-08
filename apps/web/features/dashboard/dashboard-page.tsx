@@ -10,7 +10,9 @@ import { cn } from "@workspace/ui/lib/utils"
 import { Panel, PanelLink } from "@/components/panel"
 import { useSession } from "@/lib/auth-client"
 import { formatDate, formatTimestamp } from "@/lib/format"
-import { useConvertDemo } from "@/features/demos/hooks"
+import { X } from "lucide-react"
+import { useConvertDemo, useSetDemoShelved } from "@/features/demos/hooks"
+import { ShelveDemoDialog } from "@/features/demos/shelve-demo-dialog"
 import { MonthIncomeDialog, UnpaidInvoicesDialog } from "./earnings-dialogs"
 import { useDashboard } from "./hooks"
 import { TimelinePanel } from "./timeline-panel"
@@ -41,8 +43,9 @@ function ReadyDemoRow({
   }
 }) {
   const convert = useConvertDemo(demo.id)
+  const setShelved = useSetDemoShelved(demo.id)
   return (
-    <div className="flex items-center gap-3 border-b border-border-soft py-3 last:border-0">
+    <div className="flex items-center gap-2 border-b border-border-soft py-3 last:border-0">
       <Link href={`/demos/${demo.id}`} className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">
           {demo.workingName}
@@ -65,6 +68,26 @@ function ReadyDemoRow({
       >
         Convert
       </Button>
+      {/* Shelve — off this list without converting (CONTEXT.md "Shelved"). */}
+      <ShelveDemoDialog
+        onConfirm={() =>
+          setShelved
+            .mutateAsync(true)
+            .then(() => toast.success(`${demo.workingName} shelved`))
+            .catch((e) => toast.error(e.message))
+        }
+      >
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          aria-label={`Shelve ${demo.workingName}`}
+          disabled={setShelved.isPending}
+          className="size-8 text-muted-foreground"
+        >
+          <X className="size-4" />
+        </Button>
+      </ShelveDemoDialog>
     </div>
   )
 }
@@ -288,7 +311,9 @@ function TagTrendDonuts({
   const toggle = (tag: string) => setSelected(selected === tag ? null : tag)
 
   if (tags.length === 0) {
-    return <p className="text-sm text-muted-foreground">No licensed tags yet.</p>
+    return (
+      <p className="text-sm text-muted-foreground">No licensed tags yet.</p>
+    )
   }
 
   const selectedSlice = (slices: TagShare[]) =>

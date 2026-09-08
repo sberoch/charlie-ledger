@@ -75,6 +75,19 @@ export function useConvertDemo(id: string) {
   })
 }
 
+/** Shelve / unshelve — parks an open idea off Ready to Reuse (CONTEXT.md "Shelved"). */
+export function useSetDemoShelved(id: string) {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (shelved: boolean) =>
+      api<DemoDto>(`/demos/${id}/${shelved ? "shelve" : "unshelve"}`, {
+        method: "POST",
+        schema: DemoSchema,
+      }),
+    onSuccess: invalidate,
+  })
+}
+
 export function useLinkConvertedTrack(id: string) {
   const invalidate = useInvalidate()
   return useMutation({

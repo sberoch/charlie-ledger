@@ -16,22 +16,34 @@ import { useTracks, useTrackTags } from "./hooks"
 import { TrackExportDialog } from "./track-export-dialog"
 import { TrackImportButton } from "./track-import-button"
 
-const STATUS_OPTIONS: Array<{ value: TrackStatus; label: string }> = [
+/** The Status select's value: a real status, or the "Sell this" lens — the
+ *  active tracks whose Sell signal fires (CONTEXT.md "Sell signal"). */
+export type TrackLens = TrackStatus | "sell"
+
+const STATUS_OPTIONS: Array<{ value: TrackLens; label: string }> = [
   { value: "active", label: "Active" },
   { value: "archived", label: "Archived" },
+  { value: "sell", label: "Sell this" },
 ]
+
+/** Splits the select's value into the two query params the API reads. */
+export function lensToQuery(lens: TrackLens | null) {
+  return lens === "sell"
+    ? { status: undefined, sell: "true" as const }
+    : { status: lens ?? undefined, sell: undefined }
+}
 
 export function TracksPage() {
   const router = useRouter()
   const [tag, setTag] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   // Default to the working catalog; `null` is the "All" lens. See ADR-0006.
-  const [status, setStatus] = useState<TrackStatus | null>("active")
+  const [status, setStatus] = useState<TrackLens | null>("active")
   const { data: tags = [] } = useTrackTags()
   const { data: tracks, isPending } = useTracks({
     tag: tag ?? undefined,
     search: search || undefined,
-    status: status ?? undefined,
+    ...lensToQuery(status),
   })
 
   return (
@@ -70,7 +82,7 @@ export function TracksPage() {
           variant="select"
         />
         <Input
-          placeholder="Search tracks…"
+          placeholder="Search tracks… (comma-separate to match several)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="lg:ml-auto lg:max-w-56"

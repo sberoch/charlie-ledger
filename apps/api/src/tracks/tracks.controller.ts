@@ -32,20 +32,23 @@ import { TracksService } from './tracks.service';
 /** Human label for the active filter, shown on the PDF header. */
 function filterLabel(query: TrackExportQuery): string {
   const parts: string[] = [query.tag ? `Tag · ${query.tag}` : 'All tags'];
-  if (query.status)
+  if (query.sell) parts.push('Sell this');
+  else if (query.status)
     parts.push(query.status === 'archived' ? 'Archived' : 'Active');
   if (query.search) parts.push(`Search · "${query.search}"`);
   return parts.join('  ·  ');
 }
 
-/** Tag (or "all") slugged for the download filename: tracks_<tag-or-all>.<ext>. */
+/** Tag (or "all") slugged for the download filename: tracks_<tag-or-all>.<ext>;
+ *  the "Sell this" lens appends `_sell-this` so the file says what it holds. */
 function filterSlug(query: TrackExportQuery): string {
-  return query.tag
+  const tag = query.tag
     ? query.tag
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '')
     : 'all';
+  return query.sell ? `${tag}_sell-this` : tag;
 }
 
 // Catalog CRUD plus the read models and exports. Mutations mirror the licenses

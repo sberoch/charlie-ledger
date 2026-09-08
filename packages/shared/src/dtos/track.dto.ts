@@ -40,11 +40,20 @@ export const TrackListItemSchema = z.object({
 export type TrackListItemDto = z.infer<typeof TrackListItemSchema>
 
 export const TrackListQuerySchema = z.object({
+  /** Comma-separated terms, any of which matches the name (splitSearchTerms). */
   search: z.string().trim().min(1).optional(),
   tag: z.string().optional(),
   status: TrackStatusSchema.optional(),
+  /** "Sell this" lens — active Tracks whose Sell signal fires. A filter over
+   *  the derived flag, never a fourth status (CONTEXT.md "Sell signal"). */
+  sell: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 })
 export type TrackListQuery = z.infer<typeof TrackListQuerySchema>
+/** The wire shape (pre-transform) — what the web sends; `sell` rides as "true". */
+export type TrackListQueryInput = z.input<typeof TrackListQuerySchema>
 
 // Create — name + tags. Tags are submitted as a flat name array and resolved
 // server-side via case-insensitive pick-or-create (an unknown name mints a new
