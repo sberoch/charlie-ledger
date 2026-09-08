@@ -18,10 +18,10 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import { UrgencyPill } from "@/components/pills"
 import { formatDate } from "@/lib/format"
 import { useLicenses } from "@/features/licenses/hooks"
 import { useDeleteTrack, useSetTrackStatus, useTrack } from "./hooks"
+import { LicenseHistory } from "./license-history"
 
 function SectionHead({
   children,
@@ -246,36 +246,7 @@ export function TrackDetailPage({ id }: { id: string }) {
           >
             License History
           </SectionHead>
-          <ul className="flex flex-col">
-            {licenses?.map((license) => (
-              <li key={license.id}>
-                <Link
-                  href={`/licenses/${license.id}`}
-                  className="flex items-center gap-3 border-b border-border-soft py-3.5 hover:bg-black/[0.02]"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">
-                      {license.brandName}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] tracking-[0.05em] text-muted-foreground uppercase">
-                      {license.endDate
-                        ? `Expires ${formatDate(license.endDate)}`
-                        : "Perpetual"}
-                    </span>
-                  </span>
-                  <UrgencyPill endDate={license.endDate} />
-                  <span className="w-20 text-right text-sm font-semibold tabular-nums">
-                    {formatMoney(license.fee)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-            {licenses?.length === 0 ? (
-              <li className="py-8 text-center text-sm text-muted-foreground">
-                Never licensed yet.
-              </li>
-            ) : null}
-          </ul>
+          {licenses ? <LicenseHistory licenses={licenses} /> : null}
         </div>
 
         <div>
