@@ -7,9 +7,7 @@ import {
 import { and, arrayOverlaps, desc, eq, isNull } from 'drizzle-orm';
 import {
   EXCLUSIVITY_TIER_LABELS,
-  EXCLUSIVITY_TIER_SHORT,
-  TERM_LENGTH_SHORT,
-  formatUsageTypes,
+  formatLicenseMeta,
   normalizeUsageTypes,
   addDays,
   defaultEndDate,
@@ -66,13 +64,7 @@ function licenseTitle(row: {
   return composeLicenseTitle(row.track?.name, row.brand.name);
 }
 
-function licenseMeta(row: {
-  usageTypes: Parameters<typeof formatUsageTypes>[0];
-  termLength: keyof typeof TERM_LENGTH_SHORT;
-  exclusivityTier: keyof typeof EXCLUSIVITY_TIER_SHORT;
-}) {
-  return `${formatUsageTypes(row.usageTypes)} · ${TERM_LENGTH_SHORT[row.termLength]} · ${EXCLUSIVITY_TIER_SHORT[row.exclusivityTier]}`;
-}
+const licenseMeta = formatLicenseMeta;
 
 @Injectable()
 export class LicensesService {

@@ -1,18 +1,29 @@
 import { z } from "zod"
-import { TrackStatusSchema } from "../domain/enums"
+import {
+  ExclusivityTierSchema,
+  TermLengthSchema,
+  TrackStatusSchema,
+  UsageTypeSchema,
+} from "../domain/enums"
 import { IsoDateSchema, MoneySchema, UuidSchema } from "../domain/primitives"
 
 // Track — a catalog read model. Tags are platform-owned (assigned via
 // track_tag) and surface here as a flat name array. See CONTEXT.md.
 
-// One license in a Track's history — Brand it was licensed to and the span it
-// ran. Deliberately fee-free: license history is a share-safe artifact even
-// though the financial columns are not. See CONTEXT.md / Track export.
+// One license in a Track's history — the Brand, the span it ran, and what was
+// granted (media, exclusivity, term), mirroring the track page's timeline.
+// The fee rides along ONLY when the export also opts into financials: history
+// on its own stays a share-safe artifact. See CONTEXT.md / Track export.
 export const TrackLicenseHistoryItemSchema = z.object({
   brandName: z.string(),
   startDate: IsoDateSchema,
   /** Null = perpetual ("ongoing"). */
   endDate: IsoDateSchema.nullable(),
+  usageTypes: z.array(UsageTypeSchema),
+  exclusivityTier: ExclusivityTierSchema,
+  termLength: TermLengthSchema,
+  /** Present only on exports with financials. */
+  fee: MoneySchema.optional(),
 })
 export type TrackLicenseHistoryItemDto = z.infer<
   typeof TrackLicenseHistoryItemSchema
@@ -35,8 +46,8 @@ export const TrackListItemSchema = z.object({
    *  last licensed date (or creation date, if never licensed) is over three years
    *  past. Never stored; computed server-side. See CONTEXT.md "Sell signal". */
   sellRecommended: z.boolean(),
-  /** Full license history (chronological, no fees). Present only on exports
-   *  that opt into `history`; undefined everywhere else. */
+  /** Full license history, newest first (fees only with financials). Present
+   *  only on exports that opt into `history`; undefined everywhere else. */
   licenses: z.array(TrackLicenseHistoryItemSchema).optional(),
 })
 export type TrackListItemDto = z.infer<typeof TrackListItemSchema>

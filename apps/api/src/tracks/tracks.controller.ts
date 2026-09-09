@@ -110,7 +110,9 @@ export class TracksController {
   /** List rows for an export, enriched with license history when opted in. */
   private async resolveRows(query: TrackExportQuery) {
     const rows = await this.tracks.list(query);
-    return query.history ? this.tracks.withLicenseHistory(rows) : rows;
+    return query.history
+      ? this.tracks.withLicenseHistory(rows, query.financials)
+      : rows;
   }
 
   @Get(':id')

@@ -1,14 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import {
-  formatLicenseSpan,
+  EXCLUSIVITY_TIER_LABELS,
+  EXPIRATION_URGENCY_LABELS,
+  USAGE_TYPE_LABELS,
+  TERM_LENGTH_LABELS,
+  expirationState,
   formatMoney,
+  todayIso,
+  type TrackLicenseHistoryItemDto,
   type TrackListItemDto,
 } from '@workspace/shared';
 import { COMPANY_NAME } from '../common/branding';
 
 const INK = '#1a1a1a';
 const MUTED = '#8d8a82';
+const INK_SOFT = '#5c5952';
 const HAIRLINE = '#d9d5cd';
 const MARGIN = 56;
 // Smaller than the 10pt report body so more tag lists fit on a single line.
@@ -90,6 +97,171 @@ const FINANCIAL_COLS: Column[] = [
   },
 ];
 
+// ── License history timeline ────────────────────────────────────────────────
+// A print take on the track page's timeline (apps/web/.../license-history.tsx):
+// newest first, a year in the left gutter whenever it changes, a rail down the
+// left with a dot per license — filled while the license is live, hollow once
+// it has expired, the whole entry dimmed. Each license is three lines: the
+// exact span, Brand (+ fee when financials are on), then the media granted,
+// exclusivity, term, and urgency.
+
+const TL_GAP = 6; // between the row cells and the first license
+const TL_YEAR_W = 34; // left gutter that carries the year
+const TL_RAIL_INSET = 6; // rail sits this far right of the year gutter
+const TL_TEXT_INSET = 14; // text starts this far right of the rail
+const TL_ITEM_PAD = 5; // vertical breathing room between licenses
+const TL_SPAN_FONT = 6.5;
+const TL_BRAND_FONT = 8;
+const TL_META_FONT = 7;
+const TL_LINE_GAP = 2;
+const TL_DOT_R = 1.8;
+
+class HistoryTimeline {
+  private readonly today = todayIso();
+  private readonly railX: number;
+  private readonly textX: number;
+  private readonly textW: number;
+
+  constructor(
+    private readonly doc: PDFKit.PDFDocument,
+    contentWidth: number,
+  ) {
+    this.railX = MARGIN + TL_YEAR_W + TL_RAIL_INSET;
+    this.textX = this.railX + TL_TEXT_INSET;
+    this.textW = MARGIN + contentWidth - this.textX;
+  }
+
+  /** Height the given licenses would take, gap included. */
+  blockHeight(licenses: TrackLicenseHistoryItemDto[]): number {
+    return (
+      TL_GAP +
+      licenses.reduce((acc, l) => acc + this.itemHeight(l) + TL_ITEM_PAD, 0)
+    );
+  }
+
+  /**
+   * Draw the block starting at `y`; returns the y just past it. Breaks the
+   * page between licenses when the next one would cross `bottom`, calling
+   * `newPage` and re-reading the cursor through `cursor` afterwards.
+   */
+  draw(
+    licenses: TrackLicenseHistoryItemDto[],
+    y: number,
+    bottom: number,
+    newPage: () => void,
+    cursor: () => number,
+  ): number {
+    y += TL_GAP;
+    let railTop = y;
+    let lastYear: string | null = null;
+    // Dots go on after the rail so a hollow (expired) dot isn't struck through.
+    let dots: { y: number; live: boolean }[] = [];
+    const flushRail = (railBottom: number) => {
+      this.doc
+        .moveTo(this.railX, railTop)
+        .lineTo(this.railX, railBottom)
+        .lineWidth(0.6)
+        .strokeColor(HAIRLINE)
+        .stroke();
+      for (const d of dots) {
+        this.doc.circle(this.railX, d.y, TL_DOT_R).lineWidth(0.6);
+        if (d.live) this.doc.fillAndStroke(INK, INK);
+        else this.doc.fillAndStroke('#ffffff', MUTED);
+      }
+      dots = [];
+    };
+
+    for (const l of licenses) {
+      const h = this.itemHeight(l);
+      if (y + h > bottom) {
+        flushRail(y);
+        newPage();
+        y = cursor();
+        railTop = y;
+        lastYear = null; // re-announce the year after a break
+      }
+      const year = l.startDate.slice(0, 4);
+      if (year !== lastYear) {
+        this.doc.font('Helvetica-Bold').fontSize(9).fillColor(MUTED);
+        this.doc.text(year, MARGIN, y, { width: TL_YEAR_W, lineBreak: false });
+        lastYear = year;
+      }
+      dots.push({ y: y + TL_SPAN_FONT / 2, live: this.drawItem(l, y) });
+      y += h + TL_ITEM_PAD;
+    }
+    flushRail(y - TL_ITEM_PAD);
+    return y;
+  }
+
+  private lines(l: TrackLicenseHistoryItemDto) {
+    const span = `${human(l.startDate)} – ${
+      l.endDate ? human(l.endDate) : 'Perpetual'
+    }`.toUpperCase();
+    const { urgency, daysLeft } = expirationState(l.endDate, this.today);
+    const state =
+      urgency === 'urgent' || urgency === 'expiring_soon'
+        ? `${daysLeft}d left`
+        : EXPIRATION_URGENCY_LABELS[urgency];
+    const meta = [
+      l.usageTypes.map((u) => USAGE_TYPE_LABELS[u]).join(' · '),
+      `— ${EXCLUSIVITY_TIER_LABELS[l.exclusivityTier]}`,
+      `· ${TERM_LENGTH_LABELS[l.termLength]}`,
+      `· ${state}`,
+    ].join(' ');
+    return { span, meta, live: urgency !== 'expired' };
+  }
+
+  private itemHeight(l: TrackLicenseHistoryItemDto): number {
+    const { span, meta } = this.lines(l);
+    const doc = this.doc;
+    doc.font('Courier').fontSize(TL_SPAN_FONT);
+    const spanH = doc.heightOfString(span, { width: this.textW });
+    doc.font('Courier-Bold').fontSize(TL_BRAND_FONT);
+    const brandH = doc.heightOfString(l.brandName, {
+      width: this.brandWidth(l),
+    });
+    doc.font('Courier').fontSize(TL_META_FONT);
+    const metaH = doc.heightOfString(meta, { width: this.textW });
+    return spanH + TL_LINE_GAP + brandH + TL_LINE_GAP + metaH;
+  }
+
+  /** Brand wraps short of the right-aligned fee when there is one. */
+  private brandWidth(l: TrackLicenseHistoryItemDto): number {
+    return l.fee === undefined ? this.textW : this.textW * 0.7;
+  }
+
+  /** Draws one license's three lines; returns whether it is live. */
+  private drawItem(l: TrackLicenseHistoryItemDto, y: number): boolean {
+    const { span, meta, live } = this.lines(l);
+    const doc = this.doc;
+    const ink = live ? INK : MUTED;
+
+    doc.font('Courier').fontSize(TL_SPAN_FONT).fillColor(MUTED);
+    doc.text(span, this.textX, y, { width: this.textW, characterSpacing: 1 });
+    y = doc.y + TL_LINE_GAP;
+
+    doc.font('Courier-Bold').fontSize(TL_BRAND_FONT).fillColor(ink);
+    const brandTop = y;
+    doc.text(l.brandName, this.textX, y, { width: this.brandWidth(l) });
+    const afterBrand = doc.y;
+    if (l.fee !== undefined) {
+      doc.text(formatMoney(l.fee), this.textX, brandTop, {
+        width: this.textW,
+        align: 'right',
+        lineBreak: false,
+      });
+    }
+    y = afterBrand + TL_LINE_GAP;
+
+    doc
+      .font('Courier')
+      .fontSize(TL_META_FONT)
+      .fillColor(live ? INK_SOFT : MUTED);
+    doc.text(meta, this.textX, y, { width: this.textW });
+    return live;
+  }
+}
+
 /** Same ledger voice as the invoice/report PDFs — mono table, hairlines, square. */
 @Injectable()
 export class TrackExportPdfService {
@@ -104,13 +276,7 @@ export class TrackExportPdfService {
     const right = doc.page.width - MARGIN;
     const cols = financials ? FINANCIAL_COLS : CATALOG_COLS;
 
-    // License history is a full-width caption under each track row (never a
-    // column) so it has room to flow uncapped; indented so it reads as detail.
-    const HIST_INDENT = 12;
-    const HIST_X = MARGIN + HIST_INDENT;
-    const HIST_W = width - HIST_INDENT;
-    const HIST_GAP = 5; // between the row cells and the caption
-    const HIST_LABEL_H = 11;
+    const timeline = new HistoryTimeline(doc, width);
 
     doc.font('Helvetica-Bold').fontSize(18).fillColor(INK);
     doc.text(COMPANY_NAME.toUpperCase(), MARGIN, MARGIN);
@@ -157,6 +323,11 @@ export class TrackExportPdfService {
 
     const TOP_PAD = 6;
     const BOTTOM_PAD = 10;
+    const bottom = doc.page.height - MARGIN - 60;
+    const newPage = () => {
+      doc.addPage();
+      y = MARGIN;
+    };
     for (const row of rows) {
       // Cells wrap freely; the row grows to fit its tallest cell (usually the
       // tags), so a long tag list never bleeds into the next row.
@@ -176,25 +347,15 @@ export class TrackExportPdfService {
       });
       const cellsHeight = TOP_PAD + Math.max(...cells.map((c) => c.h));
 
-      // License history caption: every license, inline-flowed (no cap), under
-      // the row. Omitted for tracks with no licenses.
+      // License history: a timeline block under the row (every license, no
+      // cap), page-breaking between licenses when it runs long. Omitted for
+      // tracks with no licenses. Keep the cells with at least the first
+      // license so a track name never strands at a page bottom.
       const licenses = history ? (row.licenses ?? []) : [];
-      const historyText = licenses.map(formatLicenseSpan).join('   ·   ');
-      let historyHeight = 0;
-      if (licenses.length) {
-        doc.font('Courier').fontSize(ROW_FONT);
-        historyHeight =
-          HIST_GAP +
-          HIST_LABEL_H +
-          doc.heightOfString(historyText, { width: HIST_W });
-      }
-
-      const rowHeight = cellsHeight + historyHeight + BOTTOM_PAD;
-
-      if (y + rowHeight > doc.page.height - MARGIN - 60) {
-        doc.addPage();
-        y = MARGIN;
-      }
+      const keepWith = licenses.length
+        ? timeline.blockHeight(licenses.slice(0, 1))
+        : 0;
+      if (y + cellsHeight + keepWith + BOTTOM_PAD > bottom) newPage();
 
       x = MARGIN;
       for (const cell of cells) {
@@ -208,17 +369,13 @@ export class TrackExportPdfService {
         });
         x += cell.w;
       }
+      y += cellsHeight;
 
       if (licenses.length) {
-        let yy = y + cellsHeight + HIST_GAP;
-        doc.font('Courier').fontSize(7).fillColor(MUTED);
-        doc.text('LICENSED BY', HIST_X, yy, { characterSpacing: 1.5 });
-        yy += HIST_LABEL_H;
-        doc.font('Courier').fontSize(ROW_FONT).fillColor(INK);
-        doc.text(historyText, HIST_X, yy, { width: HIST_W });
+        y = timeline.draw(licenses, y, bottom, newPage, () => y);
       }
 
-      y += rowHeight;
+      y += BOTTOM_PAD;
       doc
         .moveTo(MARGIN, y - BOTTOM_PAD / 2)
         .lineTo(right, y - BOTTOM_PAD / 2)

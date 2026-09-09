@@ -116,7 +116,8 @@ export function TrackExportDialog({
             <span className="text-sm">
               Include license history
               <span className="block text-xs text-muted-foreground">
-                Which brands licensed each track, and for how long. No fees.
+                Which brands licensed each track, the media granted, and for
+                how long. Fees only when financials are included.
               </span>
             </span>
           </label>

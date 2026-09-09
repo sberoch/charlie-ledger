@@ -4,10 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   NO_ALBUM_FILTER,
-  formatLicenseSpan,
+  formatLicenseHistoryLine,
+  formatLicenseMeta,
   splitSearchTerms,
   type CreateTrackInput,
   type ImportTracksInput,
@@ -116,6 +117,7 @@ export class TracksService {
    */
   async withLicenseHistory(
     rows: TrackListItemDto[],
+    withFees: boolean,
   ): Promise<TrackListItemDto[]> {
     if (rows.length === 0) return rows;
 
@@ -125,6 +127,10 @@ export class TracksService {
         brandName: brand.name,
         startDate: license.startDate,
         endDate: license.endDate,
+        usageTypes: license.usageTypes,
+        exclusivityTier: license.exclusivityTier,
+        termLength: license.termLength,
+        fee: license.fee,
       })
       .from(license)
       .innerJoin(brand, eq(license.brandId, brand.id))
@@ -134,7 +140,8 @@ export class TracksService {
           rows.map((r) => r.id),
         ),
       )
-      .orderBy(asc(license.startDate));
+      // Newest first, like the track page's timeline.
+      .orderBy(desc(license.startDate), desc(license.createdAt));
 
     const byTrack = new Map<string, TrackLicenseHistoryItemDto[]>();
     for (const rec of records) {
@@ -145,6 +152,11 @@ export class TracksService {
         brandName: rec.brandName,
         startDate: rec.startDate,
         endDate: rec.endDate,
+        usageTypes: rec.usageTypes,
+        exclusivityTier: rec.exclusivityTier,
+        termLength: rec.termLength,
+        // Fees stay out of a history-only export (share-safe).
+        ...(withFees ? { fee: rec.fee } : {}),
       });
       byTrack.set(rec.trackId, list);
     }
@@ -155,9 +167,11 @@ export class TracksService {
   /**
    * Track export → CSV. Mirrors the list (one row per Track); `financials`
    * adds the license-derived columns + a footer total (CONTEXT.md). `history`
-   * appends one share-safe "License History" column (Brands + spans, no fees),
-   * the full list ';'-joined like Tags so it never collides with the comma
-   * delimiter. Tags carry the FULL list joined with ';' for the same reason.
+   * appends one "License History" column — per license the Brand, span, and
+   * what was granted (media · term · exclusivity), newest first, plus the fee
+   * only when financials are on — the full list ';'-joined like Tags so it
+   * never collides with the comma delimiter. Tags carry the FULL list joined
+   * with ';' for the same reason.
    */
   toCsv(
     rows: TrackListItemDto[],
@@ -173,9 +187,15 @@ export class TracksService {
       esc(r.tags.join('; ')),
       status(r.status),
     ];
-    // Full history ';'-joined into one cell — no cap, no fees.
+    // Full history ';'-joined into one cell — no cap.
     const historyCell = (r: TrackListItemDto) =>
-      esc((r.licenses ?? []).map(formatLicenseSpan).join('; '));
+      esc(
+        (r.licenses ?? [])
+          .map((l) =>
+            formatLicenseHistoryLine({ ...l, meta: formatLicenseMeta(l) }),
+          )
+          .join('; '),
+      );
 
     if (!financials) {
       const header = ['Track', 'Album', 'Tags', 'Status'];

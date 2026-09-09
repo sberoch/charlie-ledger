@@ -435,7 +435,12 @@ the export always equals the on-screen view — one row per Track, never a
 per-License breakdown. Carries a **with / without financials** choice (default *without*):
 *without* is a share-safe catalog (`Track · Tags · Status`); *with* adds the
 license-derived columns (`Licenses · Lifetime sales · Last licensed`) and a footer total of
-Σ Lifetime sales. Follows the same ledger voice as the Invoice and Report PDFs.
+Σ Lifetime sales. A separate **with license history** choice (default *without*) adds each
+Track's full License history — Brand, span, media granted, exclusivity, term — newest first,
+mirroring the track page's timeline (a per-License timeline block in the PDF, one
+`;`-joined cell in the CSV); License fees appear in it only together with financials, so
+history on its own stays share-safe. Follows the same ledger voice as the Invoice and
+Report PDFs.
 _Avoid_: Download, dump, backup.
 
 ## Flagged ambiguities

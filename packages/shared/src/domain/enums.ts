@@ -114,6 +114,17 @@ export const TERM_LENGTH_SHORT: Record<TermLength, string> = {
   perpetual: "Perp.",
 }
 
+/** Dense one-line summary of what a license grants:
+ *  "Broadcast, Digital Media · 1yr · Cat. Excl.". Shared by the licenses
+ *  list, the track page and the track exports. */
+export function formatLicenseMeta(l: {
+  usageTypes: UsageType[]
+  termLength: TermLength
+  exclusivityTier: ExclusivityTier
+}): string {
+  return `${formatUsageTypes(l.usageTypes)} · ${TERM_LENGTH_SHORT[l.termLength]} · ${EXCLUSIVITY_TIER_SHORT[l.exclusivityTier]}`
+}
+
 export const TrackStatusSchema = z.enum(["active", "archived"])
 export type TrackStatus = z.infer<typeof TrackStatusSchema>
 

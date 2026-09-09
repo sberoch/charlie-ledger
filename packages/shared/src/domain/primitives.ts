@@ -64,6 +64,21 @@ export function formatLicenseSpan(l: {
   return `${l.brandName} (${formatMonthYear(l.startDate)} – ${end})`
 }
 
+/** A license history entry for a CSV cell — the span plus what was granted,
+ *  and the fee when one rides along:
+ *  "Brand (Jan 2024 – Jan 2025): Broadcast, Digital Media · 1yr · Non-Excl. · $1,500.00".
+ *  Uses "," inside and never ";", so entries can be ";"-joined in one cell. */
+export function formatLicenseHistoryLine(l: {
+  brandName: string
+  startDate: IsoDate
+  endDate: IsoDate | null
+  meta: string
+  fee?: Money
+}): string {
+  const fee = l.fee === undefined ? "" : ` · ${formatMoney(l.fee)}`
+  return `${formatLicenseSpan(l)}: ${l.meta}${fee}`
+}
+
 /** Today's date in YYYY-MM-DD, in the given IANA zone (default America/New_York — Charlie's). */
 export function todayIso(
   timeZone = "America/New_York",
